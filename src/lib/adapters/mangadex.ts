@@ -181,8 +181,10 @@ export async function fetchMangaDexChapterFeed(
       offset: String(offset),
       "order[chapter]": "asc",
       "order[volume]": "asc",
-      "contentRating[]": "safe",
+      includeExternalUrl: "0",
     });
+    params.append("contentRating[]", "safe");
+    params.append("contentRating[]", "suggestive");
     if (lang && lang !== "all") {
       params.append("translatedLanguage[]", lang);
     }
@@ -229,11 +231,7 @@ export async function fetchMangaDexChapterFeed(
     offset += limit;
   }
 
-  // Fallback: If 0 chapters found for requested language (e.g. en), fetch all languages
-  if (allChapters.length === 0 && lang !== "all") {
-    return fetchMangaDexChapterFeed(mangaId, "all");
-  }
-
+  // Strict English language enforcement: return pure English chapters
   return allChapters;
 }
 

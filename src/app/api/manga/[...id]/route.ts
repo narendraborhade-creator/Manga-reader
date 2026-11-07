@@ -193,12 +193,21 @@ export async function GET(
       coverUrl: mangaDexData.coverUrl,
     }));
 
-    // If MangaDex has 0 chapters (or Shueisha external chapters taken down), merge chapters from MangaPill or WeebCentral!
+    // If MangaDex has 0 chapters or is missing early chapters (e.g. starts at ch 25), merge MangaPill/WeebCentral!
     let chapterGroups = unifyAndSortChapters(normalizedChapters);
     let fallbackNotice: string | null = null;
 
-    if (chapterGroups.length === 0) {
-      // Auto-fallback to MangaPill or WeebCentral so the user ALWAYS has chapters to read!
+    const minChapter =
+      chapterGroups.length > 0
+        ? Math.min(...chapterGroups.map((c) => c.chapterNumber))
+        : Infinity;
+
+    const isSimulpubOrIncomplete =
+      chapterGroups.length === 0 ||
+      minChapter > 1 ||
+      (chapterGroups.length < 5 && pillMatches.length > 0);
+
+    if (isSimulpubOrIncomplete) {
       if (pillMatches.length > 0) {
         const pillData = await fetchMangaPillDetails(pillMatches[0].id);
         if (pillData && pillData.chapters.length > 0) {
@@ -217,8 +226,15 @@ export async function GET(
             sourceType: "MANGAPILL" as any,
             pageCount: 0,
           }));
-          chapterGroups = unifyAndSortChapters(pillNorm as any);
-          fallbackNotice = "Chapters streamed via high-speed MangaPill mirror (MangaDex has no hosted chapters).";
+
+          if (chapterGroups.length === 0) {
+            chapterGroups = unifyAndSortChapters(pillNorm as any);
+            fallbackNotice = "Chapters streamed via high-speed MangaPill mirror (MangaDex has no hosted chapters).";
+          } else {
+            // Merge to fill in all missing early chapters (e.g. Chapter 1 to 24)
+            chapterGroups = unifyAndSortChapters([...normalizedChapters, ...(pillNorm as any)]);
+            fallbackNotice = "Early chapters (from Chapter 1) restored via MangaPill mirror.";
+          }
         }
       } else if (weebMatches.length > 0) {
         const weebData = await fetchWeebCentralDetails(weebMatches[0].id);
@@ -238,8 +254,14 @@ export async function GET(
             sourceType: "WEEBCENTRAL" as any,
             pageCount: 0,
           }));
-          chapterGroups = unifyAndSortChapters(weebNorm as any);
-          fallbackNotice = "Chapters streamed via WeebCentral mirror.";
+
+          if (chapterGroups.length === 0) {
+            chapterGroups = unifyAndSortChapters(weebNorm as any);
+            fallbackNotice = "Chapters streamed via WeebCentral mirror.";
+          } else {
+            chapterGroups = unifyAndSortChapters([...normalizedChapters, ...(weebNorm as any)]);
+            fallbackNotice = "Early chapters (from Chapter 1) restored via WeebCentral mirror.";
+          }
         }
       }
     }
