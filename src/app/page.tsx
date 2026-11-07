@@ -12,39 +12,55 @@ import { Sparkles, Clock, Compass, BookOpen, ChevronRight } from "lucide-react";
 export const revalidate = 120; // Revalidate every 2 minutes for real-time chapter freshness
 
 export default async function HomePage() {
-  // Concurrently fetch Trending, Latest, and Multi-Source Recommendations
+  // Concurrently fetch Trending, Latest, and Curated manga categories
   const [
     trendingMedia,
     latestChapters,
-    mangaPillPopular,
-    weebCentralPopular,
+    shonenTitles,
+    seinenTitles,
     mangaDexPopular,
     aniListPopular,
   ] = await Promise.all([
     fetchAniListTrending(8).catch(() => []),
     fetchMangaDexLatestChapters(24, "en").catch(() => []),
-    searchMangaPill("Piece", 12).catch(() => []),
-    searchWeebCentral("Piece", 12).catch(() => []),
+    Promise.all([
+      searchMangaPill("Solo Leveling", 1).then((r) => r[0]),
+      searchMangaPill("Chainsaw Man", 1).then((r) => r[0]),
+      searchMangaPill("Jujutsu Kaisen", 1).then((r) => r[0]),
+      searchMangaPill("One Piece", 1).then((r) => r[0]),
+      searchMangaPill("Bleach", 1).then((r) => r[0]),
+      searchMangaPill("Naruto", 1).then((r) => r[0]),
+    ])
+      .then((items) => items.filter(Boolean))
+      .catch(() => []),
+    Promise.all([
+      searchWeebCentral("Berserk", 1).then((r) => r[0]),
+      searchWeebCentral("Vinland Saga", 1).then((r) => r[0]),
+      searchWeebCentral("Kingdom", 1).then((r) => r[0]),
+      searchWeebCentral("Vagabond", 1).then((r) => r[0]),
+      searchWeebCentral("Tokyo Ghoul", 1).then((r) => r[0]),
+      searchWeebCentral("Monster", 1).then((r) => r[0]),
+    ])
+      .then((items) => items.filter(Boolean))
+      .catch(() => []),
     searchMangaDex("", 12).catch(() => []),
     fetchAniListPopular(12).catch(() => []),
   ]);
 
-  const pillFormatted = mangaPillPopular.map((m) => ({
+  const pillFormatted = shonenTitles.map((m: any) => ({
     id: m.id,
     title: m.title,
     coverUrl: m.coverUrl,
     status: "ONGOING",
     genres: m.genres,
-    source: "MANGAPILL",
   }));
 
-  const weebFormatted = weebCentralPopular.map((m) => ({
+  const weebFormatted = seinenTitles.map((m: any) => ({
     id: m.id,
     title: m.title,
     coverUrl: m.coverUrl,
     status: "ONGOING",
     genres: m.genres,
-    source: "WEEBCENTRAL",
   }));
 
   const dexFormatted = mangaDexPopular.map((m) => ({
@@ -53,7 +69,6 @@ export default async function HomePage() {
     coverUrl: m.coverUrl,
     status: m.status,
     genres: m.tags,
-    source: "MANGADEX",
   }));
 
   const aniFormatted = aniListPopular.map((m) => ({
@@ -63,16 +78,19 @@ export default async function HomePage() {
     status: m.status || "RELEASING",
     score: m.averageScore,
     genres: m.genres,
-    source: "ANILIST",
   }));
 
-  // Curated blend for default tab
-  const combinedCurated = [
-    ...pillFormatted.slice(0, 3),
-    ...weebFormatted.slice(0, 3),
-    ...dexFormatted.slice(0, 3),
-    ...aniFormatted.slice(0, 3),
-  ];
+  // Curated blend with 100% unique titles (no duplicates)
+  const seenTitles = new Set<string>();
+  const combinedCurated: any[] = [];
+
+  for (const item of [...pillFormatted, ...weebFormatted, ...dexFormatted, ...aniFormatted]) {
+    const norm = item.title.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!seenTitles.has(norm)) {
+      seenTitles.add(norm);
+      combinedCurated.push(item);
+    }
+  }
 
   return (
     <div className="space-y-12 pb-16">
@@ -91,7 +109,7 @@ export default async function HomePage() {
                 LATEST RELEASES
               </h2>
               <p className="font-mono text-xs text-ashram-muted">
-                Real-time MangaDex and scanlation updates
+                Freshly released chapters ready to read now
               </p>
             </div>
           </div>
@@ -100,7 +118,7 @@ export default async function HomePage() {
             href="/explore"
             className="flex items-center gap-1 font-mono text-xs text-gada hover:text-gada-bright uppercase transition-colors"
           >
-            VIEW ALL CHAPTERS
+            VIEW ALL RELEASES
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
@@ -141,12 +159,12 @@ export default async function HomePage() {
                       {chapter.mangaTitle}
                     </h3>
                     <p className="font-mono text-[10px] text-ashram-muted/70 line-clamp-1 mt-1">
-                      {chapter.scanlator || "Official / Fan"}
+                      English Translation
                     </p>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono text-ashram-muted">
-                    <span className="group-hover:text-sindoor transition-colors">READ CH. {chapter.chapterNumber} →</span>
-                    <span className="text-gada-bright font-bold">LIVE</span>
+                    <span className="group-hover:text-sindoor transition-colors font-bold text-sindoor">READ CH. {chapter.chapterNumber} →</span>
+                    <span className="text-gada-bright font-bold">NEW</span>
                   </div>
                 </div>
               </YantraCard>
@@ -155,9 +173,9 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. Multi-Source Recommendations Shelf */}
+      {/* 3. Curated Manga Recommendations */}
       <MultiSourceRecommendations
-        initialItems={combinedCurated}
+        initialItems={combinedCurated.slice(0, 12)}
         mangaPillItems={pillFormatted}
         weebCentralItems={weebFormatted}
         mangaDexItems={dexFormatted}
@@ -171,15 +189,13 @@ export default async function HomePage() {
           <div className="space-y-2 md:col-span-2">
             <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
               <Sparkles className="w-4 h-4 text-gada" />
-              SANKAT MOCHAN PROTOCOL // ZERO BROKEN IMAGES
+              SANKAT MOCHAN PROTOCOL // HIGH-SPEED MANGA
             </div>
             <h3 className="font-mythic text-2xl font-bold text-ashram">
-              Multi-Source Manga Streaming
+              Integrated Manga Streaming
             </h3>
             <p className="font-hud text-sm text-ashram-muted leading-relaxed max-w-xl">
-              Engineered with automated MangaDex@Home node resolution, MangaPill cloud,
-              WeebCentral stream, anti-CORS streaming proxies, and multi-source fallbacks. Experience rapid image loading in
-              Webtoon, RTL, and Double-Spread modes.
+              Engineered with automated node resolution, high-speed image CDNs, and multi-stream failover. Enjoy uninterrupted reading in Webtoon, RTL, and Single Page modes starting directly from Chapter 1.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row md:flex-col gap-3 justify-end">
@@ -188,14 +204,14 @@ export default async function HomePage() {
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-sm bg-gada text-void font-hud font-bold uppercase tracking-wider text-sm hover:bg-gada-bright transition-all shadow-gada-gold"
             >
               <Compass className="w-4 h-4" />
-              Browse Entire Catalog
+              Explore All Titles
             </Link>
             <Link
               href="/extensions"
               className="flex items-center justify-center gap-2 px-5 py-3 rounded-sm bg-void border border-sanctum-border text-ashram font-hud font-semibold uppercase tracking-wider text-sm hover:border-gada transition-all"
             >
               <BookOpen className="w-4 h-4" />
-              Explore Extensions
+              Engine Integrations
             </Link>
           </div>
         </div>

@@ -11,10 +11,8 @@ import {
   Search,
   Bookmark as BookmarkIcon,
   CheckCircle,
-  ExternalLink,
-  Cpu,
-  Layers,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { getMangaDetails, MangaDetailsResponse } from "@/lib/api-client";
 import { YantraCard } from "@/components/hud/YantraCard";
@@ -37,7 +35,6 @@ export default function MangaDetailPage({
   // Chapter Ledger filters & state
   const [sortAsc, setSortAsc] = useState(false);
   const [chapterSearch, setChapterSearch] = useState("");
-  const [selectedSource, setSelectedSource] = useState("mangadex");
   const [bookmarked, setBookmarked] = useState(false);
   const [showFullSynopsis, setShowFullSynopsis] = useState(false);
   const [readingHistory, setReadingHistory] = useState<any>({});
@@ -88,7 +85,7 @@ export default function MangaDetailPage({
         <CyberGadaLoader
           size="md"
           text="ॐ DECODING SERIES ARCHIVE..."
-          subtext="AGGREGATING CHAPTER MATRICES ACROSS SOURCES"
+          subtext="SYNCHRONIZING VERIFIED CHAPTER STREAMS"
         />
       </div>
     );
@@ -98,7 +95,7 @@ export default function MangaDetailPage({
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center text-center p-6 bg-sanctum/90 border border-sindoor/40 rounded-sm">
         <h2 className="font-hud text-xl text-sindoor font-bold tracking-wider mb-2">
-          SACRED CODEX RECORD NOT FOUND
+          MANGA NOT FOUND
         </h2>
         <p className="font-mono text-xs text-ashram-muted mb-4 max-w-md">
           {error || "Could not retrieve series from primary index."}
@@ -183,6 +180,11 @@ export default function MangaDetailPage({
                   {manga.year}
                 </span>
               )}
+
+              <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono text-gada-bright border border-gada/30 bg-gada/10 rounded-sm">
+                <ShieldCheck className="w-3 h-3" />
+                VERIFIED ENGLISH
+              </span>
             </div>
 
             <h1 className="font-mythic text-2xl sm:text-3xl md:text-4xl font-bold text-ashram leading-tight tracking-wide">
@@ -247,7 +249,7 @@ export default function MangaDetailPage({
                 </Link>
               )}
 
-              {/* Resume Reading Button (if history exists) */}
+              {/* Resume Reading Button */}
               {readingHistory.chapterId && (
                 <Link
                   href={`/read/${readingHistory.chapterId}`}
@@ -275,54 +277,17 @@ export default function MangaDetailPage({
         </div>
       </div>
 
-      {/* Fallback Mirror Notice if Applicable */}
-      {manga.fallbackNotice && (
-        <div className="p-3 bg-sindoor/10 border border-sindoor/40 rounded-sm flex items-center gap-3 text-xs font-mono text-ashram">
-          <Sparkles className="w-4 h-4 text-sindoor flex-shrink-0" />
-          <span>{manga.fallbackNotice}</span>
-        </div>
-      )}
-
-      {/* 2. Source Switcher Tab Bar */}
+      {/* 2. Unified Chapter Archive Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sanctum-border pb-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <Layers className="w-4 h-4 text-gada" />
-          <span className="font-hud uppercase text-sm font-bold text-ashram tracking-wider">
-            DATA SOURCE:
+        <div className="flex items-center gap-2">
+          <BookOpen className="w-4 h-4 text-gada" />
+          <h2 className="font-hud uppercase text-base sm:text-lg font-bold text-ashram tracking-wider">
+            CHAPTER ARCHIVE
+          </h2>
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-prana/20 text-prana border border-prana/30 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-prana" />
+            FULL ENGLISH COVERAGE (FROM CH. 1)
           </span>
-          <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow flex items-center gap-1.5">
-              <Cpu className="w-3.5 h-3.5" />
-              {manga.sourceType || "MANGADEX"} (Active)
-            </span>
-
-            {manga.alternateSources?.mangapill && !id.startsWith("mangapill") && (
-              <Link
-                href={`/manga/${manga.alternateSources.mangapill.id}`}
-                className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada/20 text-gada-bright border border-gada/50 hover:bg-gada hover:text-void transition-all flex items-center gap-1.5 shadow-gada-gold"
-                title="Switch to MangaPill Cloud mirror"
-              >
-                Switch to MangaPill Cloud
-              </Link>
-            )}
-
-            {manga.alternateSources?.weebcentral && !id.startsWith("weebcentral") && (
-              <Link
-                href={`/manga/${manga.alternateSources.weebcentral.id}`}
-                className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500 hover:text-void transition-all flex items-center gap-1.5"
-                title="Switch to WeebCentral stream"
-              >
-                Switch to WeebCentral Stream
-              </Link>
-            )}
-
-            <Link
-              href="/extensions"
-              className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-sanctum border border-sanctum-border text-ashram-muted hover:text-ashram hover:border-gada transition-all"
-            >
-              Keiyoushi Extensions (500+)
-            </Link>
-          </div>
         </div>
 
         <div className="font-mono text-xs text-ashram-muted">
@@ -340,7 +305,7 @@ export default function MangaDetailPage({
               type="text"
               value={chapterSearch}
               onChange={(e) => setChapterSearch(e.target.value)}
-              placeholder="SEARCH CHAPTER OR TITLE..."
+              placeholder="SEARCH CHAPTER NUMBER..."
               className="w-full bg-void border border-sanctum-border text-xs font-mono text-ashram rounded px-3 py-2 pl-9 outline-none focus:border-gada"
             />
             <Search className="w-3.5 h-3.5 text-ashram-muted absolute left-3 top-2.5 pointer-events-none" />
@@ -352,7 +317,7 @@ export default function MangaDetailPage({
             className="flex items-center gap-1.5 px-3 py-2 bg-void border border-sanctum-border text-xs font-hud uppercase tracking-wider text-ashram hover:border-gada rounded transition-colors"
           >
             <ArrowUpDown className="w-3.5 h-3.5 text-gada" />
-            <span>SORT: {sortAsc ? "OLDEST FIRST (ASC)" : "NEWEST FIRST (DESC)"}</span>
+            <span>SORT: {sortAsc ? "OLDEST FIRST (CH. 1)" : "NEWEST FIRST"}</span>
           </button>
         </div>
 
@@ -390,7 +355,7 @@ export default function MangaDetailPage({
                         {cg.primary.title || `Chapter ${cg.chapterNumber}`}
                       </h4>
                       <p className="font-mono text-[10px] text-ashram-muted truncate">
-                        {cg.primary.scanlator}
+                        English Translation
                       </p>
                     </div>
 

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { MangaCard } from "./MangaCard";
-import { Sparkles, Flame, Cpu, Compass, BookOpen } from "lucide-react";
+import { Sparkles, Flame, Compass, BookOpen, Trophy, Zap } from "lucide-react";
 
 export interface RecommendationItem {
   id: string;
@@ -30,19 +30,19 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
   aniListItems,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    "all" | "mangapill" | "weebcentral" | "mangadex" | "anilist"
+    "all" | "shonen" | "seinen" | "top" | "awards"
   >("all");
 
   const displayedItems = (() => {
     switch (activeTab) {
-      case "mangapill":
-        return mangaPillItems;
-      case "weebcentral":
-        return weebCentralItems;
-      case "mangadex":
-        return mangaDexItems;
-      case "anilist":
-        return aniListItems;
+      case "shonen":
+        return mangaPillItems.length > 0 ? mangaPillItems : initialItems;
+      case "seinen":
+        return weebCentralItems.length > 0 ? weebCentralItems : initialItems;
+      case "top":
+        return mangaDexItems.length > 0 ? mangaDexItems : initialItems;
+      case "awards":
+        return aniListItems.length > 0 ? aniListItems : initialItems;
       case "all":
       default:
         return initialItems;
@@ -50,28 +50,28 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
   })();
 
   const tabs = [
-    { id: "all", label: "All Curated", icon: Sparkles, color: "text-gada" },
-    { id: "mangapill", label: "MangaPill (100% Readable)", icon: Flame, color: "text-sindoor" },
-    { id: "weebcentral", label: "WeebCentral Stream", icon: BookOpen, color: "text-cyan-400" },
-    { id: "mangadex", label: "MangaDex Most Followed", icon: Cpu, color: "text-prana" },
-    { id: "anilist", label: "AniList Ranked", icon: Compass, color: "text-purple-400" },
+    { id: "all", label: "Trending Worldwide", icon: Flame, color: "text-sindoor" },
+    { id: "shonen", label: "Action & Shonen", icon: Zap, color: "text-gada" },
+    { id: "seinen", label: "Seinen & Dark Fantasy", icon: BookOpen, color: "text-cyan-400" },
+    { id: "top", label: "Community Favorites", icon: Sparkles, color: "text-prana" },
+    { id: "awards", label: "Top Rated Masterpieces", icon: Trophy, color: "text-purple-400" },
   ] as const;
 
   return (
     <section className="space-y-6">
-      {/* Header and Source Tabs */}
+      {/* Header and Category Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-sanctum-border">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
             <Sparkles className="w-4 h-4 text-gada" />
-            MULTI-SOURCE SANCTUM // CURATED RECOMMENDATIONS
+            VAJRA CODEX ARCHIVE // CURATED TITLES
           </div>
           <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
             RECOMMENDED FOR YOU
           </h2>
         </div>
 
-        {/* Source Switcher Pill Tabs */}
+        {/* Category Switcher Tabs */}
         <div className="flex flex-wrap items-center gap-1.5 bg-sanctum/90 p-1 rounded-sm border border-sanctum-border">
           {tabs.map((tab) => {
             const Icon = tab.icon;
@@ -105,7 +105,6 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
             status={m.status}
             score={m.score}
             genres={m.genres}
-            source={m.source}
           />
         ))}
       </div>

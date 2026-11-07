@@ -25,11 +25,9 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   score,
   genres = [],
   latestChapter,
-  source,
 }) => {
   const [bookmarked, setBookmarked] = useState<boolean>(() => isBookmarked(id));
   const [imgError, setImgError] = useState(false);
-  const [useProxy, setUseProxy] = useState(true);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -45,50 +43,15 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     setBookmarked(updated);
   };
 
-  // Build high-reliability image URL (streaming proxy first to bypass ISP blocks)
   const resolvedCoverSrc = (() => {
     if (imgError) return null;
     if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
       return null;
     }
-    if (useProxy && coverUrl.startsWith("http")) {
+    if (coverUrl.startsWith("http")) {
       return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
     }
     return coverUrl;
-  })();
-
-  const handleImgError = () => {
-    if (useProxy && coverUrl && coverUrl.startsWith("http")) {
-      // Try direct unproxied if proxy failed
-      setUseProxy(false);
-    } else {
-      // Both failed, render Vedic card
-      setImgError(true);
-    }
-  };
-
-  const sourceBadge = (() => {
-    if (source) return source.toUpperCase();
-    if (id.startsWith("mangapill-")) return "MANGAPILL";
-    if (id.startsWith("weebcentral-")) return "WEEBCENTRAL";
-    if (id.startsWith("allmanga-")) return "ALLMANGA";
-    if (id.startsWith("anilist-")) return "ANILIST";
-    return "MANGADEX";
-  })();
-
-  const sourceColor = (() => {
-    switch (sourceBadge) {
-      case "MANGAPILL":
-        return "text-sindoor-glow font-bold";
-      case "WEEBCENTRAL":
-        return "text-cyan-400 font-bold";
-      case "MANGADEX":
-        return "text-prana font-bold";
-      case "ALLMANGA":
-        return "text-gada-bright font-bold";
-      default:
-        return "text-purple-400 font-bold";
-    }
   })();
 
   const targetHref = id.startsWith("anilist-")
@@ -101,7 +64,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
         glowColor="gada"
         className="h-full flex flex-col bg-sanctum/90 hover:border-gada/50 transition-all duration-300"
       >
-        {/* Cover Art Wrapper */}
+        {/* Cover Art Container */}
         <div className="relative aspect-[3/4] w-full overflow-hidden bg-void flex items-center justify-center">
           {resolvedCoverSrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -110,11 +73,11 @@ export const MangaCard: React.FC<MangaCardProps> = ({
               alt={title}
               loading="lazy"
               referrerPolicy="no-referrer"
-              onError={handleImgError}
+              onError={() => setImgError(true)}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            /* Stylized Hanuman Cover Fallback */
+            /* Stylized Hanuman Mythic Fallback */
             <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-sanctum/95 border border-gada/30">
               <span className="font-mythic text-3xl text-gada-bright mb-1 animate-pulse">
                 ॐ
@@ -187,11 +150,11 @@ export const MangaCard: React.FC<MangaCardProps> = ({
           </div>
 
           <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono text-ashram-muted">
-            <span className="group-hover:text-gada transition-colors flex items-center gap-1">
+            <span className="group-hover:text-gada transition-colors flex items-center gap-1 font-bold text-gada">
               READ NOW →
             </span>
-            <span className={sourceColor}>
-              {sourceBadge}
+            <span className="text-ashram-muted/80">
+              {status === "COMPLETED" ? "FULL SERIES" : "LATEST RELEASES"}
             </span>
           </div>
         </div>
