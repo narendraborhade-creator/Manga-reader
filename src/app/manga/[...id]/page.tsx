@@ -24,9 +24,12 @@ import { toggleBookmark, isBookmarked, getReadingProgress } from "@/lib/bookmark
 export default function MangaDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string | string[] }>;
 }) {
-  const { id } = use(params);
+  const resolvedParams = use(params);
+  const id = Array.isArray(resolvedParams.id)
+    ? resolvedParams.id.map(decodeURIComponent).join("/")
+    : decodeURIComponent(resolvedParams.id || "");
   const [manga, setManga] = useState<MangaDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,7 +298,7 @@ export default function MangaDetailPage({
 
             {manga.alternateSources?.mangapill && !id.startsWith("mangapill") && (
               <Link
-                href={`/manga/${encodeURIComponent(manga.alternateSources.mangapill.id)}`}
+                href={`/manga/${manga.alternateSources.mangapill.id}`}
                 className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada/20 text-gada-bright border border-gada/50 hover:bg-gada hover:text-void transition-all flex items-center gap-1.5 shadow-gada-gold"
                 title="Switch to MangaPill Cloud mirror"
               >
@@ -305,7 +308,7 @@ export default function MangaDetailPage({
 
             {manga.alternateSources?.weebcentral && !id.startsWith("weebcentral") && (
               <Link
-                href={`/manga/${encodeURIComponent(manga.alternateSources.weebcentral.id)}`}
+                href={`/manga/${manga.alternateSources.weebcentral.id}`}
                 className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500 hover:text-void transition-all flex items-center gap-1.5"
                 title="Switch to WeebCentral stream"
               >

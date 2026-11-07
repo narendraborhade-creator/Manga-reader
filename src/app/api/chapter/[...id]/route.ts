@@ -8,11 +8,13 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string | string[] }> }
 ) {
   try {
     const { id: rawId } = await params;
-    const id = decodeURIComponent(rawId);
+    const id = Array.isArray(rawId)
+      ? rawId.map(decodeURIComponent).join("/")
+      : decodeURIComponent(rawId || "");
     const quality =
       req.nextUrl.searchParams.get("quality") === "data-saver"
         ? "data-saver"

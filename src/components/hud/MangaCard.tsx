@@ -93,7 +93,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
 
   const targetHref = id.startsWith("anilist-")
     ? `/explore?q=${encodeURIComponent(title)}`
-    : `/manga/${encodeURIComponent(id)}`;
+    : `/manga/${id}`;
 
   return (
     <Link href={targetHref} className="group block focus:outline-none">

@@ -14,9 +14,12 @@ import { CheckCircle, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react"
 export default function ReaderPage({
   params,
 }: {
-  params: Promise<{ chapterId: string }>;
+  params: Promise<{ chapterId: string | string[] }>;
 }) {
-  const { chapterId } = use(params);
+  const resolvedParams = use(params);
+  const chapterId = Array.isArray(resolvedParams.chapterId)
+    ? resolvedParams.chapterId.map(decodeURIComponent).join("/")
+    : decodeURIComponent(resolvedParams.chapterId || "");
 
   const [pageData, setPageData] = useState<ChapterPagesResult | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
