@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  suwayomi:
+    image: ghcr.io/suwayomi/tachidesk:latest
+    container_name: vajra-suwayomi
+    ports:
+      - "4567:4567"
+    environment:
+      - TZ=Asia/Kolkata
+      - EXTENSION_REPOS=["https://github.com/keiyoushi/extensions/raw/repo/index.pb","https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json"]
+      - FLARESOLVERR_ENABLED=true
+      - FLARESOLVERR_URL=http://flaresolverr:8191
+    volumes:
+      - ./suwayomi-data:/home/suwayomi/.local/share/Tachidesk
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: vajra-flaresolverr
+    ports:
+      - "8191:8191"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: vajra-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped

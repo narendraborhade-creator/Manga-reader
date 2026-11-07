@@ -1,0 +1,11 @@
+<svg width="400" height="600" viewBox="0 0 400 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="600" fill="#07060B"/>
+  <rect x="20" y="20" width="360" height="560" stroke="#FFB800" stroke-width="2" stroke-dasharray="6 6" opacity="0.4"/>
+  <circle cx="200" cy="260" r="80" stroke="#FF3B00" stroke-width="2" opacity="0.6"/>
+  <path d="M200 180 L210 240 L190 240 Z" fill="#FFB800"/>
+  <line x1="200" y1="240" x2="200" y2="340" stroke="#FFB800" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="200" cy="345" r="8" fill="#FFD700"/>
+  <text x="200" y="420" font-family="'Cinzel Decorative', serif" font-size="28" font-weight="bold" fill="#FFD700" text-anchor="middle">ॐ VAJRA</text>
+  <text x="200" y="460" font-family="'JetBrains Mono', monospace" font-size="14" fill="#9E96B0" text-anchor="middle">MANGA CODEX COVER</text>
+  <text x="200" y="490" font-family="'Rajdhani', sans-serif" font-size="12" fill="#00F0FF" text-anchor="middle">JAI SHREE RAM // STREAMING</text>
+</svg>
