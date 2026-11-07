@@ -4,11 +4,19 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const targetUrl = req.nextUrl.searchParams.get("url");
-  const referer =
-    req.nextUrl.searchParams.get("referer") || "https://mangadex.org/";
 
   if (!targetUrl) {
     return NextResponse.json({ error: "Missing url parameter" }, { status: 400 });
+  }
+
+  // Determine optimal Referer based on target host
+  let referer = req.nextUrl.searchParams.get("referer") || "https://mangadex.org/";
+  if (targetUrl.includes("planeptune.us")) {
+    referer = "https://mangasee123.com/";
+  } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
+    referer = "https://allmanga.to/";
+  } else if (targetUrl.includes("mangadex")) {
+    referer = "https://mangadex.org/";
   }
 
   try {

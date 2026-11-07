@@ -19,6 +19,12 @@ export interface MangaDetailsResponse {
   genres: string[];
   totalChapters: number;
   chapterGroups: ChapterGroup[];
+  sourceType?: string;
+  alternateAllManga?: {
+    id: string;
+    title: string;
+    totalChapters: number;
+  } | null;
 }
 
 export async function getLatestChapters(limit = 32, lang = "en"): Promise<NormalizedChapter[]> {
@@ -60,9 +66,15 @@ export async function getChapterPages(
   }
 }
 
-export async function searchManga(query: string, limit = 24): Promise<MangaDexManga[]> {
+export async function searchManga(
+  query: string,
+  limit = 24,
+  source = "all"
+): Promise<MangaDexManga[]> {
   try {
-    const res = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+    const res = await fetch(
+      `${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=${limit}&source=${source}`
+    );
     if (!res.ok) throw new Error("Failed to search manga");
     const json = await res.json();
     return json.data ?? [];

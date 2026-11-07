@@ -31,13 +31,14 @@ function ExploreContent() {
 
   const [query, setQuery] = useState(initialQuery);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string>("all");
   const [results, setResults] = useState<MangaDexManga[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const executeSearch = (q: string, genre: string | null) => {
+  const executeSearch = (q: string, genre: string | null, src = selectedSource) => {
     setLoading(true);
     const effectiveQuery = [q.trim(), genre || ""].filter(Boolean).join(" ");
-    searchManga(effectiveQuery, 36)
+    searchManga(effectiveQuery, 36, src)
       .then((items) => {
         setResults(items);
       })
@@ -47,18 +48,23 @@ function ExploreContent() {
   };
 
   useEffect(() => {
-    executeSearch(initialQuery, null);
+    executeSearch(initialQuery, null, "all");
   }, [initialQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    executeSearch(query, selectedGenre);
+    executeSearch(query, selectedGenre, selectedSource);
+  };
+
+  const handleSourceChange = (src: string) => {
+    setSelectedSource(src);
+    executeSearch(query, selectedGenre, src);
   };
 
   const handleGenreToggle = (genre: string) => {
     const next = selectedGenre === genre ? null : genre;
     setSelectedGenre(next);
-    executeSearch(query, next);
+    executeSearch(query, next, selectedSource);
   };
 
   return (
@@ -96,6 +102,31 @@ function ExploreContent() {
             SEARCH
           </button>
         </form>
+
+        {/* Source Selector */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sanctum-border/60">
+          <span className="font-mono text-xs text-ashram-muted uppercase mr-1">
+            SOURCE:
+          </span>
+          {[
+            { id: "all", label: "ALL SOURCES (MANGADEX + ALLMANGA)" },
+            { id: "allmanga", label: "ALLMANGA ONLY" },
+            { id: "mangadex", label: "MANGADEX ONLY" },
+          ].map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => handleSourceChange(s.id)}
+              className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
+                selectedSource === s.id
+                  ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
+                  : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
 
         {/* Genre Filter Chips */}
         <div className="space-y-2">
@@ -149,6 +180,7 @@ function ExploreContent() {
                 coverUrl={m.coverUrl}
                 status={m.status}
                 genres={m.tags}
+                source={(m as any).source}
               />
             ))}
           </div>

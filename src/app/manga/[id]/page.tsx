@@ -272,33 +272,47 @@ export default function MangaDetailPage({
       </div>
 
       {/* 2. Source Switcher Tab Bar */}
-      <div className="flex items-center justify-between border-b border-sanctum-border pb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sanctum-border pb-3">
+        <div className="flex flex-wrap items-center gap-2">
           <Layers className="w-4 h-4 text-gada" />
           <span className="font-hud uppercase text-sm font-bold text-ashram tracking-wider">
             DATA SOURCE:
           </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSelectedSource("mangadex")}
+          <div className="flex flex-wrap gap-2">
+            <span
               className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
-                selectedSource === "mangadex"
-                  ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-                  : "bg-sanctum border border-sanctum-border text-ashram-muted hover:text-ashram"
+                id.startsWith("allmanga")
+                  ? "bg-sanctum border border-sanctum-border text-ashram-muted"
+                  : "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
               }`}
             >
-              MangaDex Primary
-            </button>
-            <button
-              onClick={() => setSelectedSource("keiyoushi")}
-              className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
-                selectedSource === "keiyoushi"
-                  ? "bg-gada text-void font-bold shadow-gada-gold border border-gada-bright"
-                  : "bg-sanctum border border-sanctum-border text-ashram-muted hover:text-ashram"
-              }`}
+              MangaDex {id.startsWith("allmanga") ? "" : "Primary (Active)"}
+            </span>
+
+            {manga.alternateAllManga && (
+              <Link
+                href={`/manga/${manga.alternateAllManga.id}`}
+                className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada/20 text-gada-bright border border-gada/50 hover:bg-gada hover:text-void transition-all flex items-center gap-1.5 shadow-gada-gold"
+                title="Switch to AllManga for full complete scanlations"
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                Switch to AllManga Engine ({manga.alternateAllManga.totalChapters} Chaps)
+              </Link>
+            )}
+
+            {id.startsWith("allmanga") && (
+              <span className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada text-void border border-gada-bright shadow-gada-gold flex items-center gap-1.5">
+                <Cpu className="w-3.5 h-3.5" />
+                AllManga Engine (Active)
+              </span>
+            )}
+
+            <Link
+              href="/extensions"
+              className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-sanctum border border-sanctum-border text-ashram-muted hover:text-ashram hover:border-gada transition-all"
             >
-              Keiyoushi Extensions Feed
-            </button>
+              Keiyoushi Extensions (500+)
+            </Link>
           </div>
         </div>
 

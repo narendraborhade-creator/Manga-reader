@@ -14,6 +14,7 @@ interface MangaCardProps {
   score?: number | null;
   genres?: string[];
   latestChapter?: number | string;
+  source?: string;
 }
 
 export const MangaCard: React.FC<MangaCardProps> = ({
@@ -24,6 +25,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   score,
   genres = [],
   latestChapter,
+  source,
 }) => {
   const [bookmarked, setBookmarked] = useState<boolean>(() => isBookmarked(id));
   const [imgError, setImgError] = useState(false);
@@ -122,7 +124,9 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             <span className="group-hover:text-gada transition-colors flex items-center gap-1">
               READ NOW →
             </span>
-            <span className="text-prana">MANGADEX</span>
+            <span className={id.startsWith("allmanga") || source === "ALLMANGA" ? "text-gada-bright font-bold" : "text-prana"}>
+              {id.startsWith("allmanga") || source === "ALLMANGA" ? "ALLMANGA" : "MANGADEX"}
+            </span>
           </div>
         </div>
       </YantraCard>
