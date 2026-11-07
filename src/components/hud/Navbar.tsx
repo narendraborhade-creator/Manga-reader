@@ -65,8 +65,8 @@ export const Navbar: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="SEARCH SACRED CODEX (E.G. ONE PIECE)..."
-              className="w-full bg-sanctum/90 border border-sanctum-border focus:border-gada focus:ring-1 focus:ring-gada text-xs font-mono text-ashram placeholder-ashram-muted/60 rounded px-3 py-2 pl-9 transition-all outline-none"
+              placeholder="Search manga (e.g. One Piece)..."
+              className="w-full bg-sanctum/90 border border-sanctum-border focus:border-gada focus:ring-1 focus:ring-gada text-xs font-mono text-ashram placeholder-ashram-muted/60 rounded py-2 pl-9 pr-16 transition-all outline-none"
             />
             <Search className="w-4 h-4 text-ashram-muted absolute left-3 pointer-events-none" />
             <button

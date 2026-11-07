@@ -72,7 +72,7 @@ export async function searchAllManga(
     const json = await res.json();
     const edges = json.data?.mangas?.edges ?? [];
 
-    return edges.map((item: any) => {
+    const mapped = edges.map((item: any) => {
       let cover = "/placeholder-manga.jpg";
       if (item.thumbnail) {
         cover = item.thumbnail.startsWith("http")
@@ -90,6 +90,25 @@ export async function searchAllManga(
         sourceType: "ALLMANGA" as const,
       };
     });
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      mapped.sort((a: any, b: any) => {
+        const aExact = a.title.toLowerCase() === q;
+        const bExact = b.title.toLowerCase() === q;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        const aStarts = a.title.toLowerCase().startsWith(q);
+        const bStarts = b.title.toLowerCase().startsWith(q);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        return 0;
+      });
+    }
+
+    return mapped;
   } catch (err) {
     console.warn("searchAllManga error:", err);
     return [];

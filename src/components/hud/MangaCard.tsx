@@ -29,6 +29,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
 }) => {
   const [bookmarked, setBookmarked] = useState<boolean>(() => isBookmarked(id));
   const [imgError, setImgError] = useState(false);
+  const [useProxy, setUseProxy] = useState(true);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,6 +45,30 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     setBookmarked(updated);
   };
 
+  // Build high-reliability image URL (streaming proxy first to bypass ISP blocks)
+  const resolvedCoverSrc = (() => {
+    if (imgError) return null;
+    if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
+      return null;
+    }
+    if (useProxy && coverUrl.startsWith("http")) {
+      return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
+    }
+    return coverUrl;
+  })();
+
+  const handleImgError = () => {
+    if (useProxy && coverUrl && coverUrl.startsWith("http")) {
+      // Try direct unproxied if proxy failed
+      setUseProxy(false);
+    } else {
+      // Both failed, render Vedic card
+      setImgError(true);
+    }
+  };
+
+  const isAllManga = id.startsWith("allmanga") || source === "ALLMANGA";
+
   return (
     <Link href={`/manga/${id}`} className="group block focus:outline-none">
       <YantraCard
@@ -51,16 +76,31 @@ export const MangaCard: React.FC<MangaCardProps> = ({
         className="h-full flex flex-col bg-sanctum/90 hover:border-gada/50 transition-all duration-300"
       >
         {/* Cover Art Wrapper */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-void/80">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imgError ? "/placeholder-manga.jpg" : coverUrl}
-            alt={title}
-            loading="lazy"
-            referrerPolicy="no-referrer"
-            onError={() => setImgError(true)}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+        <div className="relative aspect-[3/4] w-full overflow-hidden bg-void flex items-center justify-center">
+          {resolvedCoverSrc ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={resolvedCoverSrc}
+              alt={title}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              onError={handleImgError}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+          ) : (
+            /* Stylized Hanuman Cover Fallback */
+            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-sanctum/95 border border-gada/30">
+              <span className="font-mythic text-3xl text-gada-bright mb-1 animate-pulse">
+                ॐ
+              </span>
+              <span className="font-hud text-xs font-bold text-ashram line-clamp-2 px-1">
+                {title}
+              </span>
+              <span className="font-mono text-[9px] text-prana mt-2 tracking-widest uppercase">
+                VAJRA CODEX
+              </span>
+            </div>
+          )}
 
           {/* Vignette Overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-sanctum via-transparent to-black/30 pointer-events-none" />
@@ -124,8 +164,8 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             <span className="group-hover:text-gada transition-colors flex items-center gap-1">
               READ NOW →
             </span>
-            <span className={id.startsWith("allmanga") || source === "ALLMANGA" ? "text-gada-bright font-bold" : "text-prana"}>
-              {id.startsWith("allmanga") || source === "ALLMANGA" ? "ALLMANGA" : "MANGADEX"}
+            <span className={isAllManga ? "text-gada-bright font-bold" : "text-prana"}>
+              {isAllManga ? "ALLMANGA" : "MANGADEX"}
             </span>
           </div>
         </div>

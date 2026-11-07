@@ -301,7 +301,7 @@ export async function searchMangaDex(
     const params = new URLSearchParams({
       limit: String(limit),
       "contentRating[]": "safe",
-      "order[relevance]": "desc",
+      "order[followedCount]": "desc",
     });
     params.append("includes[]", "cover_art");
     params.append("includes[]", "author");
@@ -309,8 +309,6 @@ export async function searchMangaDex(
 
     if (query.trim()) {
       params.append("title", query.trim());
-    } else {
-      params.append("order[followedCount]", "desc");
     }
 
     const res = await fetch(`${MANGADEX_BASE}/manga?${params.toString()}`, {
@@ -324,7 +322,7 @@ export async function searchMangaDex(
     const json = await res.json();
     const items = json.data ?? [];
 
-    return items.map((manga: any) => {
+    const itemsMapped = items.map((manga: any) => {
       const titleObj = manga.attributes?.title ?? {};
       const title =
         titleObj.en ||
@@ -374,6 +372,25 @@ export async function searchMangaDex(
         artist: artistRel?.attributes?.name,
       };
     });
+
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      itemsMapped.sort((a: any, b: any) => {
+        const aExact = a.title.toLowerCase() === q;
+        const bExact = b.title.toLowerCase() === q;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        const aStarts = a.title.toLowerCase().startsWith(q);
+        const bStarts = b.title.toLowerCase().startsWith(q);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        return 0;
+      });
+    }
+
+    return itemsMapped;
   } catch (err) {
     console.error("searchMangaDex failed:", err);
     return [];

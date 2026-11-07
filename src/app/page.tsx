@@ -1,21 +1,65 @@
 import React from "react";
 import Link from "next/link";
 import { fetchMangaDexLatestChapters, searchMangaDex } from "@/lib/adapters/mangadex";
-import { fetchAniListTrending } from "@/lib/adapters/anilist";
+import { fetchAniListTrending, fetchAniListPopular } from "@/lib/adapters/anilist";
+import { searchAllManga } from "@/lib/adapters/allmanga";
 import { HeroCarousel } from "@/components/hud/HeroCarousel";
-import { MangaCard } from "@/components/hud/MangaCard";
 import { YantraCard } from "@/components/hud/YantraCard";
-import { Sparkles, Flame, Clock, Compass, BookOpen, ChevronRight } from "lucide-react";
+import { MultiSourceRecommendations } from "@/components/hud/MultiSourceRecommendations";
+import { Sparkles, Clock, Compass, BookOpen, ChevronRight } from "lucide-react";
 
 export const revalidate = 120; // Revalidate every 2 minutes for real-time chapter freshness
 
 export default async function HomePage() {
-  // Concurrently fetch Trending, Popular, and Latest Chapters
-  const [trendingMedia, latestChapters, popularManga] = await Promise.all([
+  // Concurrently fetch Trending, Latest, and Multi-Source Recommendations
+  const [
+    trendingMedia,
+    latestChapters,
+    mangaDexPopular,
+    allMangaPopular,
+    aniListPopular,
+  ] = await Promise.all([
     fetchAniListTrending(8).catch(() => []),
     fetchMangaDexLatestChapters(24, "en").catch(() => []),
     searchMangaDex("", 12).catch(() => []),
+    searchAllManga("Piece", 12).catch(() => []),
+    fetchAniListPopular(12).catch(() => []),
   ]);
+
+  const dexFormatted = mangaDexPopular.map((m) => ({
+    id: m.id,
+    title: m.title,
+    coverUrl: m.coverUrl,
+    status: m.status,
+    genres: m.tags,
+    source: "MANGADEX",
+  }));
+
+  const allFormatted = allMangaPopular.map((m) => ({
+    id: m.id,
+    title: m.title,
+    coverUrl: m.coverUrl,
+    status: m.status || "RELEASING",
+    genres: m.genres,
+    source: "ALLMANGA",
+  }));
+
+  const aniFormatted = aniListPopular.map((m) => ({
+    id: `explore?q=${encodeURIComponent(m.title.english || m.title.romaji)}`,
+    title: m.title.english || m.title.romaji || "Sacred Series",
+    coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || "/placeholder-manga.jpg",
+    status: m.status || "RELEASING",
+    score: m.averageScore,
+    genres: m.genres,
+    source: "ANILIST",
+  }));
+
+  // Curated blend for default tab
+  const combinedCurated = [
+    ...dexFormatted.slice(0, 4),
+    ...allFormatted.slice(0, 4),
+    ...aniFormatted.slice(0, 4),
+  ];
 
   return (
     <div className="space-y-12 pb-16">
@@ -61,7 +105,7 @@ export default async function HomePage() {
                 <div className="relative w-14 h-20 flex-shrink-0 bg-void rounded-sm overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={ch.coverUrl}
+                    src={ch.coverUrl.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(ch.coverUrl)}` : ch.coverUrl}
                     alt={ch.mangaTitle}
                     loading="lazy"
                     referrerPolicy="no-referrer"
@@ -104,39 +148,13 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 3. Popular & Trending Series Shelf */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-sanctum-border">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded bg-gada/20 text-gada-bright border border-gada/40 shadow-gada-gold">
-              <Flame className="w-4 h-4" />
-            </span>
-            <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
-              POPULAR MANGA CODEX
-            </h2>
-          </div>
-
-          <Link
-            href="/explore"
-            className="flex items-center gap-1 font-hud text-xs font-semibold uppercase text-gada hover:text-gada-bright tracking-wider"
-          >
-            VIEW ALL <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {popularManga.map((m) => (
-            <MangaCard
-              key={m.id}
-              id={m.id}
-              title={m.title}
-              coverUrl={m.coverUrl}
-              status={m.status}
-              genres={m.tags}
-            />
-          ))}
-        </div>
-      </section>
+      {/* 3. Multi-Source Recommendations Shelf */}
+      <MultiSourceRecommendations
+        initialItems={combinedCurated}
+        mangaDexItems={dexFormatted}
+        allMangaItems={allFormatted}
+        aniListItems={aniFormatted}
+      />
 
       {/* 4. Hanuman Vedic Cyberpunk Feature Ribbon */}
       <section className="relative overflow-hidden rounded-sm border border-gada/40 bg-sanctum/90 p-8 shadow-hud-glow">
@@ -148,11 +166,11 @@ export default async function HomePage() {
               SANKAT MOCHAN PROTOCOL // ZERO BROKEN IMAGES
             </div>
             <h3 className="font-mythic text-2xl font-bold text-ashram">
-              Read Without Interruption
+              Multi-Source Manga Streaming
             </h3>
             <p className="font-hud text-sm text-ashram-muted leading-relaxed max-w-xl">
-              Engineered with automated MangaDex@Home node resolution, anti-CORS streaming
-              proxies, and multi-source fallbacks. Experience rapid image loading in
+              Engineered with automated MangaDex@Home node resolution, AllManga GraphQL
+              archive, anti-CORS streaming proxies, and multi-source fallbacks. Experience rapid image loading in
               Webtoon, RTL, and Double-Spread modes.
             </p>
           </div>

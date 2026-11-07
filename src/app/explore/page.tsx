@@ -27,9 +27,9 @@ const GENRES = [
 
 function ExploreContent() {
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || "";
+  const qParam = searchParams.get("q") || "";
 
-  const [query, setQuery] = useState(initialQuery);
+  const [query, setQuery] = useState(qParam);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>("all");
   const [results, setResults] = useState<MangaDexManga[]>([]);
@@ -48,8 +48,9 @@ function ExploreContent() {
   };
 
   useEffect(() => {
-    executeSearch(initialQuery, null, "all");
-  }, [initialQuery]);
+    setQuery(qParam);
+    executeSearch(qParam, selectedGenre, selectedSource);
+  }, [qParam]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

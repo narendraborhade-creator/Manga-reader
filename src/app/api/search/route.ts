@@ -37,6 +37,24 @@ export async function GET(req: NextRequest) {
       combinedResults = [...taggedMangaDex, ...taggedAllManga];
     }
 
+    // Sort to ensure exact title matches always appear first
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      combinedResults.sort((a, b) => {
+        const aExact = a.title.toLowerCase() === q;
+        const bExact = b.title.toLowerCase() === q;
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+
+        const aStarts = a.title.toLowerCase().startsWith(q);
+        const bStarts = b.title.toLowerCase().startsWith(q);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+
+        return 0;
+      });
+    }
+
     return NextResponse.json({
       success: true,
       data: combinedResults,
