@@ -160,7 +160,7 @@ export default function ReaderPage({
         <p className="font-mono text-xs text-ashram-muted mb-6">
           {error || "Unable to retrieve pages from MangaDex node network."}
         </p>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap justify-center gap-3">
           <button
             onClick={() => loadChapter(chapterId, quality)}
             className="flex items-center gap-2 px-5 py-2.5 bg-sindoor hover:bg-sindoor-glow text-white font-hud font-bold uppercase text-xs rounded transition-all shadow-sindoor-neon"
@@ -168,6 +168,12 @@ export default function ReaderPage({
             <RotateCcw className="w-4 h-4" />
             RETRY STREAM
           </button>
+          <Link
+            href="/explore"
+            className="px-5 py-2.5 bg-gada text-void font-hud font-bold uppercase text-xs rounded hover:bg-gada-bright transition-all shadow-gada-gold"
+          >
+            EXPLORE ALL SOURCES
+          </Link>
           <Link
             href="/"
             className="px-5 py-2.5 bg-void border border-sanctum-border text-ashram font-hud font-bold uppercase text-xs rounded hover:border-gada transition-colors"

@@ -2,7 +2,8 @@ import React from "react";
 import Link from "next/link";
 import { fetchMangaDexLatestChapters, searchMangaDex } from "@/lib/adapters/mangadex";
 import { fetchAniListTrending, fetchAniListPopular } from "@/lib/adapters/anilist";
-import { searchAllManga } from "@/lib/adapters/allmanga";
+import { searchMangaPill } from "@/lib/adapters/mangapill";
+import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { HeroCarousel } from "@/components/hud/HeroCarousel";
 import { YantraCard } from "@/components/hud/YantraCard";
 import { MultiSourceRecommendations } from "@/components/hud/MultiSourceRecommendations";
@@ -15,16 +16,36 @@ export default async function HomePage() {
   const [
     trendingMedia,
     latestChapters,
+    mangaPillPopular,
+    weebCentralPopular,
     mangaDexPopular,
-    allMangaPopular,
     aniListPopular,
   ] = await Promise.all([
     fetchAniListTrending(8).catch(() => []),
     fetchMangaDexLatestChapters(24, "en").catch(() => []),
+    searchMangaPill("Piece", 12).catch(() => []),
+    searchWeebCentral("Piece", 12).catch(() => []),
     searchMangaDex("", 12).catch(() => []),
-    searchAllManga("Piece", 12).catch(() => []),
     fetchAniListPopular(12).catch(() => []),
   ]);
+
+  const pillFormatted = mangaPillPopular.map((m) => ({
+    id: m.id,
+    title: m.title,
+    coverUrl: m.coverUrl,
+    status: "ONGOING",
+    genres: m.genres,
+    source: "MANGAPILL",
+  }));
+
+  const weebFormatted = weebCentralPopular.map((m) => ({
+    id: m.id,
+    title: m.title,
+    coverUrl: m.coverUrl,
+    status: "ONGOING",
+    genres: m.genres,
+    source: "WEEBCENTRAL",
+  }));
 
   const dexFormatted = mangaDexPopular.map((m) => ({
     id: m.id,
@@ -35,17 +56,8 @@ export default async function HomePage() {
     source: "MANGADEX",
   }));
 
-  const allFormatted = allMangaPopular.map((m) => ({
-    id: m.id,
-    title: m.title,
-    coverUrl: m.coverUrl,
-    status: m.status || "RELEASING",
-    genres: m.genres,
-    source: "ALLMANGA",
-  }));
-
   const aniFormatted = aniListPopular.map((m) => ({
-    id: `explore?q=${encodeURIComponent(m.title.english || m.title.romaji)}`,
+    id: `anilist-${m.id}`,
     title: m.title.english || m.title.romaji || "Sacred Series",
     coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || "/placeholder-manga.jpg",
     status: m.status || "RELEASING",
@@ -56,9 +68,10 @@ export default async function HomePage() {
 
   // Curated blend for default tab
   const combinedCurated = [
-    ...dexFormatted.slice(0, 4),
-    ...allFormatted.slice(0, 4),
-    ...aniFormatted.slice(0, 4),
+    ...pillFormatted.slice(0, 3),
+    ...weebFormatted.slice(0, 3),
+    ...dexFormatted.slice(0, 3),
+    ...aniFormatted.slice(0, 3),
   ];
 
   return (
@@ -73,73 +86,67 @@ export default async function HomePage() {
             <span className="p-1.5 rounded bg-sindoor/20 text-sindoor border border-sindoor/40 shadow-sindoor-neon">
               <Clock className="w-4 h-4" />
             </span>
-            <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
-              REAL-TIME LATEST CHAPTERS
-            </h2>
-            <span className="font-mono text-[10px] text-prana px-2 py-0.5 rounded bg-prana/10 border border-prana/30">
-              LIVE STREAM
-            </span>
+            <div>
+              <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
+                LATEST RELEASES
+              </h2>
+              <p className="font-mono text-xs text-ashram-muted">
+                Real-time MangaDex and scanlation updates
+              </p>
+            </div>
           </div>
 
           <Link
             href="/explore"
-            className="flex items-center gap-1 font-hud text-xs font-semibold uppercase text-gada hover:text-gada-bright tracking-wider"
+            className="flex items-center gap-1 font-mono text-xs text-gada hover:text-gada-bright uppercase transition-colors"
           >
-            EXPLORE ALL <ChevronRight className="w-3.5 h-3.5" />
+            VIEW ALL CHAPTERS
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
         {/* Latest Chapters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {latestChapters.map((ch) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {latestChapters.map((chapter) => (
             <Link
-              key={ch.externalChapId}
-              href={`/read/${ch.externalChapId}`}
-              className="group block"
+              key={chapter.externalChapId}
+              href={`/read/${chapter.externalChapId}`}
+              className="group block focus:outline-none"
             >
               <YantraCard
                 glowColor="sindoor"
-                className="p-3 flex items-center gap-3 bg-sanctum/85 hover:border-sindoor/50 transition-all duration-300"
+                className="h-full flex flex-col bg-sanctum/90 hover:border-sindoor/60 transition-all duration-300"
               >
-                {/* Thumbnail */}
-                <div className="relative w-14 h-20 flex-shrink-0 bg-void rounded-sm overflow-hidden">
+                {/* Cover Image */}
+                <div className="relative aspect-[3/4] w-full overflow-hidden bg-void">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={ch.coverUrl.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(ch.coverUrl)}` : ch.coverUrl}
-                    alt={ch.mangaTitle}
+                    src={`/api/proxy/image?url=${encodeURIComponent(chapter.coverUrl)}`}
+                    alt={chapter.mangaTitle}
                     loading="lazy"
                     referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                </div>
-
-                {/* Chapter Info */}
-                <div className="flex-1 min-w-0 space-y-1">
-                  <h4
-                    title={ch.mangaTitle}
-                    className="font-hud font-bold text-sm text-ashram group-hover:text-gada-bright transition-colors truncate"
-                  >
-                    {ch.mangaTitle}
-                  </h4>
-                  <div className="flex items-center gap-1.5">
-                    <span className="px-1.5 py-0.5 text-[10px] font-mono font-bold bg-sindoor/90 text-white rounded-sm">
-                      CH. {ch.chapterNumber}
-                    </span>
-                    <span className="font-mono text-[10px] text-ashram-muted truncate">
-                      {ch.scanlator}
+                  <div className="absolute top-2 left-2 z-10">
+                    <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-sindoor text-white rounded-sm shadow-sindoor-neon">
+                      CH. {chapter.chapterNumber}
                     </span>
                   </div>
-                  <div className="font-mono text-[9px] text-ashram-muted/70 flex items-center justify-between">
-                    <span>
-                      {new Date(ch.publishedAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <span className="text-prana">READ →</span>
+                </div>
+
+                {/* Info */}
+                <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+                  <div>
+                    <h3 className="font-hud font-bold text-sm text-ashram group-hover:text-sindoor-glow transition-colors line-clamp-2 leading-snug">
+                      {chapter.mangaTitle}
+                    </h3>
+                    <p className="font-mono text-[10px] text-ashram-muted/70 line-clamp-1 mt-1">
+                      {chapter.scanlator || "Official / Fan"}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono text-ashram-muted">
+                    <span className="group-hover:text-sindoor transition-colors">READ CH. {chapter.chapterNumber} →</span>
+                    <span className="text-gada-bright font-bold">LIVE</span>
                   </div>
                 </div>
               </YantraCard>
@@ -151,8 +158,9 @@ export default async function HomePage() {
       {/* 3. Multi-Source Recommendations Shelf */}
       <MultiSourceRecommendations
         initialItems={combinedCurated}
+        mangaPillItems={pillFormatted}
+        weebCentralItems={weebFormatted}
         mangaDexItems={dexFormatted}
-        allMangaItems={allFormatted}
         aniListItems={aniFormatted}
       />
 
@@ -169,8 +177,8 @@ export default async function HomePage() {
               Multi-Source Manga Streaming
             </h3>
             <p className="font-hud text-sm text-ashram-muted leading-relaxed max-w-xl">
-              Engineered with automated MangaDex@Home node resolution, AllManga GraphQL
-              archive, anti-CORS streaming proxies, and multi-source fallbacks. Experience rapid image loading in
+              Engineered with automated MangaDex@Home node resolution, MangaPill cloud,
+              WeebCentral stream, anti-CORS streaming proxies, and multi-source fallbacks. Experience rapid image loading in
               Webtoon, RTL, and Double-Spread modes.
             </p>
           </div>

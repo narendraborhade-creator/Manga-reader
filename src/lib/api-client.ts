@@ -20,6 +20,11 @@ export interface MangaDetailsResponse {
   totalChapters: number;
   chapterGroups: ChapterGroup[];
   sourceType?: string;
+  fallbackNotice?: string | null;
+  alternateSources?: {
+    mangapill?: { id: string; title: string } | null;
+    weebcentral?: { id: string; title: string } | null;
+  } | null;
   alternateAllManga?: {
     id: string;
     title: string;

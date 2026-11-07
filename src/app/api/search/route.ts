@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchMangaDex } from "@/lib/adapters/mangadex";
+import { searchMangaPill } from "@/lib/adapters/mangapill";
+import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { searchAllManga } from "@/lib/adapters/allmanga";
 
 export const dynamic = "force-dynamic";
@@ -7,37 +9,36 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   try {
     const query = req.nextUrl.searchParams.get("q") || "";
-    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "24", 10);
-    const source = req.nextUrl.searchParams.get("source") || "all";
+    const limit = parseInt(req.nextUrl.searchParams.get("limit") || "32", 10);
+    const source = (req.nextUrl.searchParams.get("source") || "all").toLowerCase();
 
     let combinedResults: any[] = [];
 
-    if (source === "allmanga") {
-      combinedResults = await searchAllManga(query, limit);
+    if (source === "mangapill") {
+      combinedResults = await searchMangaPill(query, limit);
+    } else if (source === "weebcentral") {
+      combinedResults = await searchWeebCentral(query, limit);
     } else if (source === "mangadex") {
       combinedResults = await searchMangaDex(query, limit);
+    } else if (source === "allmanga") {
+      combinedResults = await searchAllManga(query, limit);
     } else {
-      // Fetch concurrently from both MangaDex and AllManga
-      const [mangaDexResults, allMangaResults] = await Promise.all([
-        searchMangaDex(query, Math.ceil(limit / 2)).catch(() => []),
-        searchAllManga(query, Math.ceil(limit / 2)).catch(() => []),
+      // "all" source: Concurrent query across MangaPill, WeebCentral, and MangaDex
+      const [mangaPillRes, weebCentralRes, mangaDexRes] = await Promise.all([
+        searchMangaPill(query, 16).catch(() => []),
+        searchWeebCentral(query, 16).catch(() => []),
+        searchMangaDex(query, 16).catch(() => []),
       ]);
 
-      // Tag each source clearly
-      const taggedMangaDex = mangaDexResults.map((m) => ({
-        ...m,
-        source: "MANGADEX",
-      }));
-      const taggedAllManga = allMangaResults.map((m) => ({
-        ...m,
-        source: "ALLMANGA",
-      }));
+      const taggedPill = mangaPillRes.map((m) => ({ ...m, source: "MANGAPILL" }));
+      const taggedWeeb = weebCentralRes.map((m) => ({ ...m, source: "WEEBCENTRAL" }));
+      const taggedDex = mangaDexRes.map((m) => ({ ...m, source: "MANGADEX" }));
 
-      // Interleave or combine results
-      combinedResults = [...taggedMangaDex, ...taggedAllManga];
+      // Group exact matches first, then partial matches
+      combinedResults = [...taggedPill, ...taggedWeeb, ...taggedDex];
     }
 
-    // Sort to ensure exact title matches always appear first
+    // Sort to prioritize exact title matches at index 0
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       combinedResults.sort((a, b) => {

@@ -59,19 +59,19 @@ export const Navbar: React.FC = () => {
           {/* Desktop Search Bar */}
           <form
             onSubmit={handleSearchSubmit}
-            className="hidden md:flex items-center relative w-72 lg:w-96"
+            className="hidden md:flex items-center w-72 lg:w-96 bg-sanctum/90 border border-sanctum-border focus-within:border-gada focus-within:ring-1 focus-within:ring-gada rounded px-2.5 py-1 transition-all"
           >
+            <Search className="w-4 h-4 text-ashram-muted flex-shrink-0 mr-2" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search manga (e.g. One Piece)..."
-              className="w-full bg-sanctum/90 border border-sanctum-border focus:border-gada focus:ring-1 focus:ring-gada text-xs font-mono text-ashram placeholder-ashram-muted/60 rounded py-2 pl-9 pr-16 transition-all outline-none"
+              className="flex-1 min-w-0 bg-transparent text-xs font-mono text-ashram placeholder-ashram-muted/60 outline-none pr-2"
             />
-            <Search className="w-4 h-4 text-ashram-muted absolute left-3 pointer-events-none" />
             <button
               type="submit"
-              className="absolute right-1.5 px-2 py-1 bg-gada/20 text-gada-bright font-hud text-[10px] uppercase font-bold rounded hover:bg-gada hover:text-void transition-colors"
+              className="flex-shrink-0 px-2 py-1 bg-gada/20 text-gada-bright font-hud text-[10px] uppercase font-bold rounded hover:bg-gada hover:text-void transition-colors"
             >
               SCAN
             </button>

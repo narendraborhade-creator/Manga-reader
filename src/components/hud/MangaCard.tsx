@@ -67,10 +67,36 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     }
   };
 
-  const isAllManga = id.startsWith("allmanga") || source === "ALLMANGA";
+  const sourceBadge = (() => {
+    if (source) return source.toUpperCase();
+    if (id.startsWith("mangapill-")) return "MANGAPILL";
+    if (id.startsWith("weebcentral-")) return "WEEBCENTRAL";
+    if (id.startsWith("allmanga-")) return "ALLMANGA";
+    if (id.startsWith("anilist-")) return "ANILIST";
+    return "MANGADEX";
+  })();
+
+  const sourceColor = (() => {
+    switch (sourceBadge) {
+      case "MANGAPILL":
+        return "text-sindoor-glow font-bold";
+      case "WEEBCENTRAL":
+        return "text-cyan-400 font-bold";
+      case "MANGADEX":
+        return "text-prana font-bold";
+      case "ALLMANGA":
+        return "text-gada-bright font-bold";
+      default:
+        return "text-purple-400 font-bold";
+    }
+  })();
+
+  const targetHref = id.startsWith("anilist-")
+    ? `/explore?q=${encodeURIComponent(title)}`
+    : `/manga/${encodeURIComponent(id)}`;
 
   return (
-    <Link href={`/manga/${id}`} className="group block focus:outline-none">
+    <Link href={targetHref} className="group block focus:outline-none">
       <YantraCard
         glowColor="gada"
         className="h-full flex flex-col bg-sanctum/90 hover:border-gada/50 transition-all duration-300"
@@ -164,8 +190,8 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             <span className="group-hover:text-gada transition-colors flex items-center gap-1">
               READ NOW →
             </span>
-            <span className={isAllManga ? "text-gada-bright font-bold" : "text-prana"}>
-              {isAllManga ? "ALLMANGA" : "MANGADEX"}
+            <span className={sourceColor}>
+              {sourceBadge}
             </span>
           </div>
         </div>

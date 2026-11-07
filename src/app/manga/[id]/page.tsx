@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Cpu,
   Layers,
+  Sparkles,
 } from "lucide-react";
 import { getMangaDetails, MangaDetailsResponse } from "@/lib/api-client";
 import { YantraCard } from "@/components/hud/YantraCard";
@@ -138,7 +139,7 @@ export default function MangaDetailPage({
         <div className="relative w-full h-48 md:h-72 overflow-hidden bg-void">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={banner}
+            src={banner.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(banner)}` : banner}
             alt={manga.title}
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover object-center brightness-40 blur-sm scale-105"
@@ -152,7 +153,7 @@ export default function MangaDetailPage({
           <div className="relative w-36 sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] bg-void rounded-sm border-2 border-gada/60 shadow-gada-gold overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={manga.coverUrl}
+              src={manga.coverUrl.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}` : manga.coverUrl}
               alt={manga.title}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"
@@ -271,6 +272,14 @@ export default function MangaDetailPage({
         </div>
       </div>
 
+      {/* Fallback Mirror Notice if Applicable */}
+      {manga.fallbackNotice && (
+        <div className="p-3 bg-sindoor/10 border border-sindoor/40 rounded-sm flex items-center gap-3 text-xs font-mono text-ashram">
+          <Sparkles className="w-4 h-4 text-sindoor flex-shrink-0" />
+          <span>{manga.fallbackNotice}</span>
+        </div>
+      )}
+
       {/* 2. Source Switcher Tab Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sanctum-border pb-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -279,32 +288,29 @@ export default function MangaDetailPage({
             DATA SOURCE:
           </span>
           <div className="flex flex-wrap gap-2">
-            <span
-              className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
-                id.startsWith("allmanga")
-                  ? "bg-sanctum border border-sanctum-border text-ashram-muted"
-                  : "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-              }`}
-            >
-              MangaDex {id.startsWith("allmanga") ? "" : "Primary (Active)"}
+            <span className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow flex items-center gap-1.5">
+              <Cpu className="w-3.5 h-3.5" />
+              {manga.sourceType || "MANGADEX"} (Active)
             </span>
 
-            {manga.alternateAllManga && (
+            {manga.alternateSources?.mangapill && !id.startsWith("mangapill") && (
               <Link
-                href={`/manga/${manga.alternateAllManga.id}`}
+                href={`/manga/${encodeURIComponent(manga.alternateSources.mangapill.id)}`}
                 className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada/20 text-gada-bright border border-gada/50 hover:bg-gada hover:text-void transition-all flex items-center gap-1.5 shadow-gada-gold"
-                title="Switch to AllManga for full complete scanlations"
+                title="Switch to MangaPill Cloud mirror"
               >
-                <Cpu className="w-3.5 h-3.5" />
-                Switch to AllManga Engine ({manga.alternateAllManga.totalChapters} Chaps)
+                Switch to MangaPill Cloud
               </Link>
             )}
 
-            {id.startsWith("allmanga") && (
-              <span className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-gada text-void border border-gada-bright shadow-gada-gold flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5" />
-                AllManga Engine (Active)
-              </span>
+            {manga.alternateSources?.weebcentral && !id.startsWith("weebcentral") && (
+              <Link
+                href={`/manga/${encodeURIComponent(manga.alternateSources.weebcentral.id)}`}
+                className="px-3 py-1 rounded text-xs font-mono font-bold uppercase bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 hover:bg-cyan-500 hover:text-void transition-all flex items-center gap-1.5"
+                title="Switch to WeebCentral stream"
+              >
+                Switch to WeebCentral Stream
+              </Link>
             )}
 
             <Link

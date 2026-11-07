@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMangaDexDetails, fetchMangaDexChapterFeed } from "@/lib/adapters/mangadex";
-import { fetchAllMangaDetails, searchAllManga } from "@/lib/adapters/allmanga";
+import { fetchMangaPillDetails, searchMangaPill } from "@/lib/adapters/mangapill";
+import { fetchWeebCentralDetails, searchWeebCentral } from "@/lib/adapters/weebcentral";
+import { fetchAllMangaDetails } from "@/lib/adapters/allmanga";
 import { fetchRichMangaMetadata } from "@/lib/adapters/anilist";
 import { unifyAndSortChapters } from "@/lib/aggregator";
 
@@ -11,10 +13,111 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    const { id: rawId } = await params;
+    const id = decodeURIComponent(rawId);
     const lang = req.nextUrl.searchParams.get("lang") || "en";
 
-    // 1. Handle AllManga Source Directly
+    // 1. Handle MangaPill Source
+    if (id.startsWith("mangapill-")) {
+      const data = await fetchMangaPillDetails(id);
+      if (!data) {
+        return NextResponse.json(
+          { success: false, error: "MangaPill series not found" },
+          { status: 404 }
+        );
+      }
+
+      const normalizedChapters = data.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: data.id,
+        mangaTitle: data.title,
+        coverUrl: data.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: ch.sourceName,
+        publishedAt: new Date().toISOString(),
+        sourceId: "mangapill",
+        sourceType: "MANGAPILL" as any,
+        pageCount: 0,
+      }));
+
+      const chapterGroups = unifyAndSortChapters(normalizedChapters as any);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: data.id,
+          title: data.title,
+          altTitles: [],
+          description: data.description,
+          coverUrl: data.coverUrl,
+          bannerUrl: data.coverUrl,
+          status: data.status,
+          score: 92,
+          year: null,
+          author: "Unknown",
+          artist: "Unknown",
+          genres: data.genres,
+          totalChapters: data.totalChapters,
+          chapterGroups,
+          sourceType: "MANGAPILL",
+        },
+      });
+    }
+
+    // 2. Handle WeebCentral Source
+    if (id.startsWith("weebcentral-")) {
+      const data = await fetchWeebCentralDetails(id);
+      if (!data) {
+        return NextResponse.json(
+          { success: false, error: "WeebCentral series not found" },
+          { status: 404 }
+        );
+      }
+
+      const normalizedChapters = data.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: data.id,
+        mangaTitle: data.title,
+        coverUrl: data.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: ch.sourceName,
+        publishedAt: new Date().toISOString(),
+        sourceId: "weebcentral",
+        sourceType: "WEEBCENTRAL" as any,
+        pageCount: 0,
+      }));
+
+      const chapterGroups = unifyAndSortChapters(normalizedChapters as any);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: data.id,
+          title: data.title,
+          altTitles: [],
+          description: data.description,
+          coverUrl: data.coverUrl,
+          bannerUrl: data.coverUrl,
+          status: data.status,
+          score: 95,
+          year: null,
+          author: data.authors.join(", ") || "Unknown",
+          artist: "Unknown",
+          genres: data.genres,
+          totalChapters: data.totalChapters,
+          chapterGroups,
+          sourceType: "WEEBCENTRAL",
+        },
+      });
+    }
+
+    // 3. Handle AllManga Source
     if (id.startsWith("allmanga-")) {
       const allMangaData = await fetchAllMangaDetails(id);
       if (!allMangaData) {
@@ -24,7 +127,6 @@ export async function GET(
         );
       }
 
-      // Format AllManga chapters into unified chapter groups
       const normalizedChapters = allMangaData.chapters.map((ch) => ({
         externalChapId: ch.id,
         mangaExternalId: allMangaData.id,
@@ -37,7 +139,7 @@ export async function GET(
         scanlator: ch.sourceName,
         publishedAt: new Date().toISOString(),
         sourceId: "allmanga",
-        sourceType: "ALLMANGA" as const,
+        sourceType: "ALLMANGA" as any,
         pageCount: 0,
       }));
 
@@ -65,7 +167,7 @@ export async function GET(
       });
     }
 
-    // 2. Handle MangaDex Source
+    // 4. Handle MangaDex Source
     const mangaDexData = await fetchMangaDexDetails(id);
     if (!mangaDexData) {
       return NextResponse.json(
@@ -74,11 +176,12 @@ export async function GET(
       );
     }
 
-    // Concurrently fetch Rich Metadata, MangaDex Chapters, and AllManga counterpart
-    const [richMeta, rawChapters, allMangaMatches] = await Promise.all([
+    // Concurrently fetch Rich Metadata, MangaDex Chapters, and alternative sources (MangaPill, WeebCentral)
+    const [richMeta, rawChapters, pillMatches, weebMatches] = await Promise.all([
       fetchRichMangaMetadata(mangaDexData.title).catch(() => ({ source: "NONE", data: null })),
       fetchMangaDexChapterFeed(id, lang).catch(() => []),
-      searchAllManga(mangaDexData.title, 1).catch(() => []),
+      searchMangaPill(mangaDexData.title, 1).catch(() => []),
+      searchWeebCentral(mangaDexData.title, 1).catch(() => []),
     ]);
 
     // Attach manga title & cover to chapters
@@ -88,8 +191,56 @@ export async function GET(
       coverUrl: mangaDexData.coverUrl,
     }));
 
-    // Unify and Sort chapters
-    const chapterGroups = unifyAndSortChapters(normalizedChapters);
+    // If MangaDex has 0 chapters (or Shueisha external chapters taken down), merge chapters from MangaPill or WeebCentral!
+    let chapterGroups = unifyAndSortChapters(normalizedChapters);
+    let fallbackNotice: string | null = null;
+
+    if (chapterGroups.length === 0) {
+      // Auto-fallback to MangaPill or WeebCentral so the user ALWAYS has chapters to read!
+      if (pillMatches.length > 0) {
+        const pillData = await fetchMangaPillDetails(pillMatches[0].id);
+        if (pillData && pillData.chapters.length > 0) {
+          const pillNorm = pillData.chapters.map((ch) => ({
+            externalChapId: ch.id,
+            mangaExternalId: mangaDexData.id,
+            mangaTitle: mangaDexData.title,
+            coverUrl: mangaDexData.coverUrl,
+            chapterNumber: ch.chapterNumber,
+            volumeNumber: null,
+            title: ch.title,
+            language: "en",
+            scanlator: "MangaPill Cloud Stream",
+            publishedAt: new Date().toISOString(),
+            sourceId: "mangapill",
+            sourceType: "MANGAPILL" as any,
+            pageCount: 0,
+          }));
+          chapterGroups = unifyAndSortChapters(pillNorm as any);
+          fallbackNotice = "Chapters streamed via high-speed MangaPill mirror (MangaDex has no hosted chapters).";
+        }
+      } else if (weebMatches.length > 0) {
+        const weebData = await fetchWeebCentralDetails(weebMatches[0].id);
+        if (weebData && weebData.chapters.length > 0) {
+          const weebNorm = weebData.chapters.map((ch) => ({
+            externalChapId: ch.id,
+            mangaExternalId: mangaDexData.id,
+            mangaTitle: mangaDexData.title,
+            coverUrl: mangaDexData.coverUrl,
+            chapterNumber: ch.chapterNumber,
+            volumeNumber: null,
+            title: ch.title,
+            language: "en",
+            scanlator: "WeebCentral Stream",
+            publishedAt: new Date().toISOString(),
+            sourceId: "weebcentral",
+            sourceType: "WEEBCENTRAL" as any,
+            pageCount: 0,
+          }));
+          chapterGroups = unifyAndSortChapters(weebNorm as any);
+          fallbackNotice = "Chapters streamed via WeebCentral mirror.";
+        }
+      }
+    }
 
     // Merge rich metadata
     let enrichedBanner: string | undefined = undefined;
@@ -107,13 +258,10 @@ export async function GET(
       if (!enrichedSynopsis && data.synopsis) enrichedSynopsis = data.synopsis;
     }
 
-    const alternateAllManga = allMangaMatches[0]
-      ? {
-          id: allMangaMatches[0].id,
-          title: allMangaMatches[0].title,
-          totalChapters: allMangaMatches[0].totalChapters,
-        }
-      : null;
+    const alternateSources = {
+      mangapill: pillMatches[0] ? { id: pillMatches[0].id, title: pillMatches[0].title } : null,
+      weebcentral: weebMatches[0] ? { id: weebMatches[0].id, title: weebMatches[0].title } : null,
+    };
 
     return NextResponse.json({
       success: true,
@@ -130,10 +278,11 @@ export async function GET(
         author: mangaDexData.author || "Unknown",
         artist: mangaDexData.artist || "Unknown",
         genres: enrichedGenres,
-        totalChapters: normalizedChapters.length,
+        totalChapters: chapterGroups.length,
         chapterGroups,
         sourceType: "MANGADEX",
-        alternateAllManga,
+        fallbackNotice,
+        alternateSources,
       },
     });
   } catch (error: any) {

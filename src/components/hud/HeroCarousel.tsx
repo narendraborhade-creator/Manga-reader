@@ -34,7 +34,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({ items }) => {
       {/* Background Banner with Cyber Vignette */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={banner}
+        src={banner.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(banner)}` : banner}
         alt={title}
         referrerPolicy="no-referrer"
         className="absolute inset-0 w-full h-full object-cover object-center brightness-50 transition-all duration-700 scale-105"

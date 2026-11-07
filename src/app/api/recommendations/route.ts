@@ -1,14 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAniListPopular, fetchAniListTrending } from "@/lib/adapters/anilist";
 import { searchMangaDex } from "@/lib/adapters/mangadex";
-import { searchAllManga } from "@/lib/adapters/allmanga";
+import { searchMangaPill } from "@/lib/adapters/mangapill";
+import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const source = req.nextUrl.searchParams.get("source") || "all";
+    const source = (req.nextUrl.searchParams.get("source") || "all").toLowerCase();
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "12", 10);
+
+    if (source === "mangapill") {
+      const pill = await searchMangaPill("Piece", limit);
+      return NextResponse.json({ success: true, source: "MANGAPILL", data: pill });
+    }
+
+    if (source === "weebcentral") {
+      const weeb = await searchWeebCentral("Piece", limit);
+      return NextResponse.json({ success: true, source: "WEEBCENTRAL", data: weeb });
+    }
 
     if (source === "anilist") {
       const aniList = await fetchAniListPopular(limit);
@@ -24,24 +35,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, source: "ANILIST", data: items });
     }
 
-    if (source === "allmanga") {
-      const allManga = await searchAllManga("Piece", limit);
-      return NextResponse.json({ success: true, source: "ALLMANGA", data: allManga });
-    }
-
     if (source === "mangadex") {
       const mangaDex = await searchMangaDex("", limit);
       const tagged = mangaDex.map((m) => ({ ...m, source: "MANGADEX" }));
       return NextResponse.json({ success: true, source: "MANGADEX", data: tagged });
     }
 
-    // Default: Combined recommendations across AniList, MangaDex, and AllManga
-    const [aniList, mangaDex, allManga] = await Promise.all([
-      fetchAniListTrending(6).catch(() => []),
+    // Default: Multi-Source Curated Recommendations across MangaPill, WeebCentral, MangaDex, and AniList
+    const [pillRes, weebRes, dexRes, aniList] = await Promise.all([
+      searchMangaPill("One", 6).catch(() => []),
+      searchWeebCentral("Piece", 6).catch(() => []),
       searchMangaDex("", 6).catch(() => []),
-      searchAllManga("", 6).catch(() => []),
+      fetchAniListTrending(6).catch(() => []),
     ]);
 
+    const pillFormatted = pillRes.map((m) => ({ ...m, source: "MANGAPILL" }));
+    const weebFormatted = weebRes.map((m) => ({ ...m, source: "WEEBCENTRAL" }));
+    const dexFormatted = dexRes.map((m) => ({ ...m, source: "MANGADEX" }));
     const aniFormatted = aniList.map((m) => ({
       id: `anilist-${m.id}`,
       title: m.title.english || m.title.romaji || "Sacred Series",
@@ -52,10 +62,7 @@ export async function GET(req: NextRequest) {
       source: "ANILIST",
     }));
 
-    const dexFormatted = mangaDex.map((m) => ({ ...m, source: "MANGADEX" }));
-    const allFormatted = allManga.map((m) => ({ ...m, source: "ALLMANGA" }));
-
-    const combined = [...dexFormatted, ...allFormatted, ...aniFormatted];
+    const combined = [...pillFormatted, ...weebFormatted, ...dexFormatted, ...aniFormatted];
 
     return NextResponse.json({
       success: true,

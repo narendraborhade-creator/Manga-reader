@@ -10,17 +10,20 @@ export async function GET(req: NextRequest) {
   }
 
   // Determine optimal Referer and User-Agent based on target host
-  let referer: string | undefined = undefined;
-  let userAgent = "VajraMangaReader/1.0";
+  let referer: string | undefined = req.nextUrl.searchParams.get("referer") || undefined;
+  let userAgent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
   if (targetUrl.includes("planeptune.us")) {
-    referer = "https://mangasee123.com/";
-    userAgent =
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+    referer = referer || "https://mangasee123.com/";
+  } else if (targetUrl.includes("compsci88.com") || targetUrl.includes("weebcentral.com")) {
+    referer = referer || "https://weebcentral.com/";
+  } else if (targetUrl.includes("readdetectiveconan.com") || targetUrl.includes("mangapill.com")) {
+    referer = referer || "https://mangapill.com/";
   } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
-    referer = "https://allmanga.to/";
+    referer = referer || "https://allmanga.to/";
   } else if (targetUrl.includes("mangadex")) {
-    // MangaDex blocks generic Chrome UA from server IPs; requires custom User-Agent
+    // MangaDex blocks generic Chrome UA from cloud IPs; requires custom User-Agent
     userAgent = "VajraMangaReader/1.0";
     referer = undefined; // Omitting referer prevents anti-hotlink trigger
   }

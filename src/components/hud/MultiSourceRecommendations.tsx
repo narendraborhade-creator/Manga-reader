@@ -2,9 +2,9 @@
 
 import React, { useState } from "react";
 import { MangaCard } from "./MangaCard";
-import { Sparkles, Flame, Cpu, Compass } from "lucide-react";
+import { Sparkles, Flame, Cpu, Compass, BookOpen } from "lucide-react";
 
-interface RecommendationItem {
+export interface RecommendationItem {
   id: string;
   title: string;
   coverUrl: string;
@@ -16,25 +16,31 @@ interface RecommendationItem {
 
 interface MultiSourceRecommendationsProps {
   initialItems: RecommendationItem[];
+  mangaPillItems: RecommendationItem[];
+  weebCentralItems: RecommendationItem[];
   mangaDexItems: RecommendationItem[];
-  allMangaItems: RecommendationItem[];
   aniListItems: RecommendationItem[];
 }
 
 export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProps> = ({
   initialItems,
+  mangaPillItems,
+  weebCentralItems,
   mangaDexItems,
-  allMangaItems,
   aniListItems,
 }) => {
-  const [activeTab, setActiveTab] = useState<"all" | "mangadex" | "allmanga" | "anilist">("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | "mangapill" | "weebcentral" | "mangadex" | "anilist"
+  >("all");
 
   const displayedItems = (() => {
     switch (activeTab) {
+      case "mangapill":
+        return mangaPillItems;
+      case "weebcentral":
+        return weebCentralItems;
       case "mangadex":
         return mangaDexItems;
-      case "allmanga":
-        return allMangaItems;
       case "anilist":
         return aniListItems;
       case "all":
@@ -45,9 +51,10 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
 
   const tabs = [
     { id: "all", label: "All Curated", icon: Sparkles, color: "text-gada" },
-    { id: "mangadex", label: "MangaDex Most Followed", icon: Flame, color: "text-sindoor" },
-    { id: "allmanga", label: "AllManga Scanlations", icon: Cpu, color: "text-prana" },
-    { id: "anilist", label: "AniList Highest Rated", icon: Compass, color: "text-gada-bright" },
+    { id: "mangapill", label: "MangaPill (100% Readable)", icon: Flame, color: "text-sindoor" },
+    { id: "weebcentral", label: "WeebCentral Stream", icon: BookOpen, color: "text-cyan-400" },
+    { id: "mangadex", label: "MangaDex Most Followed", icon: Cpu, color: "text-prana" },
+    { id: "anilist", label: "AniList Ranked", icon: Compass, color: "text-purple-400" },
   ] as const;
 
   return (

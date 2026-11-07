@@ -110,9 +110,11 @@ function ExploreContent() {
             SOURCE:
           </span>
           {[
-            { id: "all", label: "ALL SOURCES (MANGADEX + ALLMANGA)" },
-            { id: "allmanga", label: "ALLMANGA ONLY" },
-            { id: "mangadex", label: "MANGADEX ONLY" },
+            { id: "all", label: "ALL SOURCES (RECOMMENDED)" },
+            { id: "mangapill", label: "MANGAPILL (100% READABLE)" },
+            { id: "weebcentral", label: "WEEBCENTRAL STREAM" },
+            { id: "mangadex", label: "MANGADEX API v5" },
+            { id: "allmanga", label: "ALLMANGA ARCHIVE" },
           ].map((s) => (
             <button
               key={s.id}

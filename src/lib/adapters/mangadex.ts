@@ -300,9 +300,10 @@ export async function searchMangaDex(
   try {
     const params = new URLSearchParams({
       limit: String(limit),
-      "contentRating[]": "safe",
       "order[followedCount]": "desc",
     });
+    params.append("contentRating[]", "safe");
+    params.append("contentRating[]", "suggestive");
     params.append("includes[]", "cover_art");
     params.append("includes[]", "author");
     params.append("includes[]", "artist");
@@ -326,6 +327,8 @@ export async function searchMangaDex(
       const titleObj = manga.attributes?.title ?? {};
       const title =
         titleObj.en ||
+        titleObj["ja-ro"] ||
+        titleObj["ja"] ||
         Object.values(titleObj)[0] ||
         "Unknown Series";
 
@@ -376,8 +379,8 @@ export async function searchMangaDex(
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       itemsMapped.sort((a: any, b: any) => {
-        const aExact = a.title.toLowerCase() === q;
-        const bExact = b.title.toLowerCase() === q;
+        const aExact = a.title.toLowerCase() === q || (a.altTitles && a.altTitles.some((t: string) => t.toLowerCase() === q));
+        const bExact = b.title.toLowerCase() === q || (b.altTitles && b.altTitles.some((t: string) => t.toLowerCase() === q));
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
 
