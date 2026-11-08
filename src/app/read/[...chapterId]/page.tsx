@@ -146,8 +146,8 @@ export default function ReaderPage({
       <div className="fixed inset-0 z-50 bg-void flex items-center justify-center p-4">
         <CyberGadaLoader
           size="lg"
-          text="ॐ DEPLOYING SACRED MANGA SCROLLS..."
-          subtext="RESOLVING MANGADEX@HOME NODES & DECODING PAGES"
+          text="ॐ LOADING CHAPTER STREAM..."
+          subtext="RETRIEVING HIGH DEFINITION MANGA PAGES"
         />
       </div>
     );
@@ -161,7 +161,7 @@ export default function ReaderPage({
           SACRED TRANSMISSION INTERRUPTED
         </h2>
         <p className="font-mono text-xs text-ashram-muted mb-6">
-          {error || "Unable to retrieve pages from MangaDex node network."}
+          {error || "Unable to retrieve pages for this chapter stream."}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <button
@@ -175,7 +175,7 @@ export default function ReaderPage({
             href="/explore"
             className="px-5 py-2.5 bg-gada text-void font-hud font-bold uppercase text-xs rounded hover:bg-gada-bright transition-all shadow-gada-gold"
           >
-            EXPLORE ALL SOURCES
+            EXPLORE ALL MANGA
           </Link>
           <Link
             href="/"

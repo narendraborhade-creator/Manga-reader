@@ -240,13 +240,22 @@ export default function MangaDetailPage({
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-3">
               {manga.chapterGroups.length > 0 && (
-                <Link
-                  href={`/read/${manga.chapterGroups[manga.chapterGroups.length - 1].primary.externalChapId}`}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-sm bg-gradient-to-r from-sindoor to-sindoor-glow text-white font-hud font-bold uppercase tracking-wider text-sm shadow-sindoor-neon hover:scale-105 transition-all"
-                >
-                  <BookOpen className="w-4 h-4" />
-                  START READING (CH. 1)
-                </Link>
+                <>
+                  <Link
+                    href={`/read/${manga.chapterGroups[manga.chapterGroups.length - 1].primary.externalChapId}`}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-sm bg-gradient-to-r from-sindoor to-sindoor-glow text-white font-hud font-bold uppercase tracking-wider text-sm shadow-sindoor-neon hover:scale-105 transition-all"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    START FROM CH. 1
+                  </Link>
+
+                  <Link
+                    href={`/read/${manga.chapterGroups[0].primary.externalChapId}`}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-sm bg-void border border-sanctum-border text-ashram hover:border-gada font-hud font-bold uppercase tracking-wider text-sm transition-all"
+                  >
+                    LATEST (CH. {manga.chapterGroups[0].chapterNumber})
+                  </Link>
+                </>
               )}
 
               {/* Resume Reading Button */}
@@ -256,7 +265,7 @@ export default function MangaDetailPage({
                   className="flex items-center gap-2 px-5 py-2.5 rounded-sm bg-gada text-void font-hud font-bold uppercase tracking-wider text-sm shadow-gada-gold hover:bg-gada-bright transition-all"
                 >
                   <CheckCircle className="w-4 h-4" />
-                  RESUME CH. {readingHistory.chapterNumber} (PAGE {readingHistory.page})
+                  RESUME CH. {readingHistory.chapterNumber}
                 </Link>
               )}
 

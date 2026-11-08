@@ -87,11 +87,11 @@ export async function GET(
         });
       }
 
-      // Fallback: If AllManga fails or requires CAPTCHA, resolve title from AllManga and fetch from MangaPill/WeebCentral
+      // Fallback to MangaPill or WeebCentral
       const allMangaMeta = await fetchAllMangaDetails(mangaId);
       const title = allMangaMeta?.title;
       if (title) {
-        const pillMatches = await searchMangaPill(title, 1).catch(() => []);
+        const pillMatches = await searchMangaPill(title, 2).catch(() => []);
         if (pillMatches.length > 0) {
           const pillData = await fetchMangaPillDetails(pillMatches[0].id);
           const targetNum = parseFloat(chapterString) || 1;
@@ -122,16 +122,103 @@ export async function GET(
       }
     }
 
-    // 4. Handle MangaDex@Home Resolver
-    const result = await resolveMangaDexChapterPages(id, quality);
+    // 4. Handle MangaDex@Home Resolver with Automatic Mirror Failover
+    try {
+      const result = await resolveMangaDexChapterPages(id, quality);
+      if (result && result.proxiedPages && result.proxiedPages.length > 0) {
+        const response = NextResponse.json({
+          success: true,
+          data: result,
+        });
+        response.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+        return response;
+      }
+    } catch (dexErr) {
+      console.warn("MangaDex chapter resolve failed, attempting failover:", dexErr);
+    }
 
-    const response = NextResponse.json({
-      success: true,
-      data: result,
-    });
+    // Fallback: Query MangaDex Chapter info to find Title + Chapter #
+    const chRes = await fetch(
+      `https://api.mangadex.org/chapter/${id}?includes[]=manga`,
+      { headers: { "User-Agent": "VajraMangaReader/1.0" } }
+    ).catch(() => null);
 
-    response.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
-    return response;
+    if (chRes && chRes.ok) {
+      const chJson = await chRes.json();
+      const chData = chJson.data;
+      const chNum = parseFloat(chData?.attributes?.chapter || "1") || 1;
+      const mangaRel = chData?.relationships?.find((r: any) => r.type === "manga");
+      const titleObj = mangaRel?.attributes?.title || {};
+      const altTitles = mangaRel?.attributes?.altTitles || [];
+      const title =
+        titleObj.en ||
+        altTitles.find((a: any) => a?.en)?.en ||
+        Object.values(titleObj)[0];
+
+      if (title) {
+        // Try MangaPill
+        const pillMatches = await searchMangaPill(title, 2).catch(() => []);
+        if (pillMatches.length > 0) {
+          const pillData = await fetchMangaPillDetails(pillMatches[0].id).catch(() => null);
+          const matchedCh = pillData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - chNum) < 0.05
+          );
+          if (matchedCh) {
+            const pages = await fetchMangaPillChapterPages(matchedCh.id);
+            if (pages && pages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  baseUrl: "https://mangapill.com",
+                  hash: "",
+                  quality,
+                  files: pages.pages,
+                  proxiedPages: pages.proxiedPages,
+                  directPages: pages.pages,
+                  sourceName: "Vajra Cloud Stream",
+                },
+              });
+            }
+          }
+        }
+
+        // Try WeebCentral
+        const weebMatches = await searchWeebCentral(title, 2).catch(() => []);
+        if (weebMatches.length > 0) {
+          const weebData = await fetchWeebCentralDetails(weebMatches[0].id).catch(() => null);
+          const matchedCh = weebData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - chNum) < 0.05
+          );
+          if (matchedCh) {
+            const pages = await fetchWeebCentralChapterPages(matchedCh.id);
+            if (pages && pages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  baseUrl: "https://weebcentral.com",
+                  hash: "",
+                  quality,
+                  files: pages.pages,
+                  proxiedPages: pages.proxiedPages,
+                  directPages: pages.pages,
+                  sourceName: "Vajra Cloud Stream",
+                },
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unable to retrieve pages from any connected stream node.",
+      },
+      { status: 404 }
+    );
   } catch (error: any) {
     console.error("Resolve chapter pages error:", error);
     return NextResponse.json(

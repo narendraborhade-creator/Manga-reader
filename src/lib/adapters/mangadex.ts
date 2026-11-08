@@ -13,7 +13,7 @@ export interface NormalizedChapter {
   scanlator: string;
   publishedAt: string;
   sourceId: string;
-  sourceType: "MANGADEX" | "KEIYOUSHI_SUWAYOMI";
+  sourceType: "MANGADEX" | "KEIYOUSHI_SUWAYOMI" | "MANGAPILL" | "WEEBCENTRAL" | "ALLMANGA" | "UNIFIED";
   pageCount?: number;
   externalUrl?: string | null;
 }
@@ -31,6 +31,40 @@ export interface MangaDexManga {
   tags: string[];
   author?: string;
   artist?: string;
+}
+
+export function getBestEnglishTitle(
+  titleObj: Record<string, string> = {},
+  altTitlesList?: Array<Record<string, string>> | string[]
+): string {
+  // 1. Direct english key in title
+  if (titleObj?.en && titleObj.en.trim()) {
+    return titleObj.en.trim();
+  }
+  // 2. Scan altTitles for 'en'
+  if (Array.isArray(altTitlesList)) {
+    for (const alt of altTitlesList) {
+      if (typeof alt === "object" && alt !== null) {
+        if (alt.en && alt.en.trim()) return alt.en.trim();
+      }
+    }
+  }
+  // 3. Scan for any clean Latin/ASCII title in altTitles
+  if (Array.isArray(altTitlesList)) {
+    for (const alt of altTitlesList) {
+      const val = typeof alt === "string" ? alt : Object.values(alt)[0];
+      if (val && /^[\x20-\x7E]+$/.test(val) && val.length > 2) {
+        return val.trim();
+      }
+    }
+  }
+  // 4. Fallback to ja-ro, or first available title
+  return (
+    titleObj?.["ja-ro"] ||
+    titleObj?.["ja"] ||
+    (titleObj ? Object.values(titleObj)[0] : "") ||
+    "Unknown Series"
+  );
 }
 
 /**
@@ -85,12 +119,12 @@ export async function fetchMangaDexCovers(
  * Uses includeExternalUrl=0 to ensure 100% readable pages
  */
 export async function fetchMangaDexLatestChapters(
-  limit = 32,
+  limit = 24,
   lang = "en"
 ): Promise<NormalizedChapter[]> {
   try {
     const params = new URLSearchParams({
-      limit: String(limit),
+      limit: "96",
       "translatedLanguage[]": lang,
       "order[readableAt]": "desc",
       "contentRating[]": "safe",
@@ -122,41 +156,56 @@ export async function fetchMangaDexLatestChapters(
 
     const coverMap = await fetchMangaDexCovers(mangaIds);
 
-    return chapters.map((ch: any) => {
+    const seenManga = new Set<string>();
+    const uniqueChapters: NormalizedChapter[] = [];
+
+    for (const ch of chapters) {
       const mangaRel = ch.relationships?.find((r: any) => r.type === "manga");
+      const mangaId = mangaRel?.id ?? "";
+      if (!mangaId || seenManga.has(mangaId)) continue;
+
+      const titleObj = mangaRel?.attributes?.title ?? {};
+      const altTitles = mangaRel?.attributes?.altTitles ?? [];
+      const mangaTitle = getBestEnglishTitle(titleObj, altTitles);
+
+      // Filter out low quality, unnamed or placeholder entries
+      if (!mangaTitle || mangaTitle === "Unknown Manga" || mangaTitle === "Unknown Series") continue;
+
+      const coverUrl = coverMap.get(mangaId);
+      if (!coverUrl) continue;
+
+      seenManga.add(mangaId);
+
       const groupRel = ch.relationships?.find(
         (r: any) => r.type === "scanlation_group"
       );
-      const mangaId = mangaRel?.id ?? "";
-      const titleObj = mangaRel?.attributes?.title ?? {};
-      const mangaTitle =
-        titleObj.en ||
-        Object.values(titleObj)[0] ||
-        "Unknown Manga";
-
       const chNumber = parseFloat(ch.attributes?.chapter ?? "0") || 0;
       const volNumber = ch.attributes?.volume
         ? parseFloat(ch.attributes.volume)
         : null;
 
-      return {
+      uniqueChapters.push({
         externalChapId: ch.id,
         mangaExternalId: mangaId,
         mangaTitle: String(mangaTitle),
-        coverUrl: coverMap.get(mangaId) || "/placeholder-manga.jpg",
+        coverUrl,
         chapterNumber: chNumber,
         volumeNumber: volNumber,
         title: ch.attributes?.title || `Chapter ${ch.attributes?.chapter ?? chNumber}`,
         language: ch.attributes?.translatedLanguage ?? lang,
-        scanlator: groupRel?.attributes?.name ?? "Scanlation Collective",
+        scanlator: groupRel?.attributes?.name ?? "Official / Community",
         publishedAt:
           ch.attributes?.readableAt ?? ch.attributes?.publishAt ?? new Date().toISOString(),
         sourceId: "mangadex",
         sourceType: "MANGADEX",
         pageCount: ch.attributes?.pages || 0,
         externalUrl: ch.attributes?.externalUrl || null,
-      };
-    });
+      });
+
+      if (uniqueChapters.length >= limit) break;
+    }
+
+    return uniqueChapters;
   } catch (error) {
     console.error("fetchMangaDexLatestChapters failed:", error);
     return [];
@@ -323,16 +372,10 @@ export async function searchMangaDex(
 
     const itemsMapped = items.map((manga: any) => {
       const titleObj = manga.attributes?.title ?? {};
-      const title =
-        titleObj.en ||
-        titleObj["ja-ro"] ||
-        titleObj["ja"] ||
-        Object.values(titleObj)[0] ||
-        "Unknown Series";
-
       const altTitles = (manga.attributes?.altTitles ?? []).map(
         (alt: Record<string, string>) => Object.values(alt)[0]
       );
+      const title = getBestEnglishTitle(titleObj, manga.attributes?.altTitles);
 
       const descObj = manga.attributes?.description ?? {};
       const description =
@@ -418,10 +461,7 @@ export async function fetchMangaDexDetails(mangaId: string): Promise<MangaDexMan
     if (!manga) return null;
 
     const titleObj = manga.attributes?.title ?? {};
-    const title =
-      titleObj.en ||
-      Object.values(titleObj)[0] ||
-      "Unknown Series";
+    const title = getBestEnglishTitle(titleObj, manga.attributes?.altTitles);
 
     const altTitles = (manga.attributes?.altTitles ?? []).map(
       (alt: Record<string, string>) => Object.values(alt)[0]

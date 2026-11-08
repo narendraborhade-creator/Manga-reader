@@ -9,10 +9,62 @@ import { YantraCard } from "@/components/hud/YantraCard";
 import { MultiSourceRecommendations } from "@/components/hud/MultiSourceRecommendations";
 import { Sparkles, Clock, Compass, BookOpen, ChevronRight } from "lucide-react";
 
-export const revalidate = 120; // Revalidate every 2 minutes for real-time chapter freshness
+export const revalidate = 60; // Fresh chapters every minute
+
+async function fetchCuratedManga(title: string) {
+  const [weebList, pillList] = await Promise.all([
+    searchWeebCentral(title, 2).catch(() => []),
+    searchMangaPill(title, 2).catch(() => []),
+  ]);
+
+  const cleanQuery = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const wMatch = weebList.find(
+    (m) =>
+      !m.title.toLowerCase().includes("novel") &&
+      !m.title.toLowerCase().includes("volume") &&
+      m.title.toLowerCase().replace(/[^a-z0-9]/g, "").includes(cleanQuery)
+  );
+  if (wMatch) {
+    return {
+      id: wMatch.id,
+      title: wMatch.title,
+      coverUrl: wMatch.coverUrl,
+      status: "ONGOING",
+      genres: wMatch.genres || [],
+    };
+  }
+
+  const pMatch = pillList.find(
+    (m) =>
+      !m.title.toLowerCase().includes("novel") &&
+      m.title.toLowerCase().replace(/[^a-z0-9]/g, "").includes(cleanQuery)
+  );
+  if (pMatch) {
+    return {
+      id: pMatch.id,
+      title: pMatch.title,
+      coverUrl: pMatch.coverUrl,
+      status: "ONGOING",
+      genres: pMatch.genres || [],
+    };
+  }
+
+  const fallback = weebList[0] || pillList[0];
+  if (fallback) {
+    return {
+      id: fallback.id,
+      title: fallback.title,
+      coverUrl: fallback.coverUrl,
+      status: "ONGOING",
+      genres: (fallback as any).genres || [],
+    };
+  }
+
+  return null;
+}
 
 export default async function HomePage() {
-  // Concurrently fetch Trending, Latest, and Curated manga categories
   const [
     trendingMedia,
     latestChapters,
@@ -22,24 +74,24 @@ export default async function HomePage() {
     aniListPopular,
   ] = await Promise.all([
     fetchAniListTrending(8).catch(() => []),
-    fetchMangaDexLatestChapters(24, "en").catch(() => []),
+    fetchMangaDexLatestChapters(18, "en").catch(() => []),
     Promise.all([
-      searchMangaPill("Solo Leveling", 1).then((r) => r[0]),
-      searchMangaPill("Chainsaw Man", 1).then((r) => r[0]),
-      searchMangaPill("Jujutsu Kaisen", 1).then((r) => r[0]),
-      searchMangaPill("One Piece", 1).then((r) => r[0]),
-      searchMangaPill("Bleach", 1).then((r) => r[0]),
-      searchMangaPill("Naruto", 1).then((r) => r[0]),
+      fetchCuratedManga("One Piece"),
+      fetchCuratedManga("Jujutsu Kaisen"),
+      fetchCuratedManga("Chainsaw Man"),
+      fetchCuratedManga("Solo Leveling"),
+      fetchCuratedManga("Bleach"),
+      fetchCuratedManga("Naruto"),
     ])
       .then((items) => items.filter(Boolean))
       .catch(() => []),
     Promise.all([
-      searchWeebCentral("Berserk", 1).then((r) => r[0]),
-      searchWeebCentral("Vinland Saga", 1).then((r) => r[0]),
-      searchWeebCentral("Kingdom", 1).then((r) => r[0]),
-      searchWeebCentral("Vagabond", 1).then((r) => r[0]),
-      searchWeebCentral("Tokyo Ghoul", 1).then((r) => r[0]),
-      searchWeebCentral("Monster", 1).then((r) => r[0]),
+      fetchCuratedManga("Berserk"),
+      fetchCuratedManga("Vinland Saga"),
+      fetchCuratedManga("Kingdom"),
+      fetchCuratedManga("Vagabond"),
+      fetchCuratedManga("Tower of God"),
+      fetchCuratedManga("Omniscient Reader"),
     ])
       .then((items) => items.filter(Boolean))
       .catch(() => []),
@@ -47,21 +99,8 @@ export default async function HomePage() {
     fetchAniListPopular(12).catch(() => []),
   ]);
 
-  const pillFormatted = shonenTitles.map((m: any) => ({
-    id: m.id,
-    title: m.title,
-    coverUrl: m.coverUrl,
-    status: "ONGOING",
-    genres: m.genres,
-  }));
-
-  const weebFormatted = seinenTitles.map((m: any) => ({
-    id: m.id,
-    title: m.title,
-    coverUrl: m.coverUrl,
-    status: "ONGOING",
-    genres: m.genres,
-  }));
+  const pillFormatted = (shonenTitles as any[]).filter(Boolean);
+  const weebFormatted = (seinenTitles as any[]).filter(Boolean);
 
   const dexFormatted = mangaDexPopular.map((m) => ({
     id: m.id,
@@ -73,7 +112,7 @@ export default async function HomePage() {
 
   const aniFormatted = aniListPopular.map((m) => ({
     id: `anilist-${m.id}`,
-    title: m.title.english || m.title.romaji || "Sacred Series",
+    title: m.title.english || m.title.romaji || "Popular Series",
     coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || "/placeholder-manga.jpg",
     status: m.status || "RELEASING",
     score: m.averageScore,
@@ -85,6 +124,7 @@ export default async function HomePage() {
   const combinedCurated: any[] = [];
 
   for (const item of [...pillFormatted, ...weebFormatted, ...dexFormatted, ...aniFormatted]) {
+    if (!item || !item.title) continue;
     const norm = item.title.toLowerCase().replace(/[^a-z0-9]/g, "");
     if (!seenTitles.has(norm)) {
       seenTitles.add(norm);
@@ -97,7 +137,7 @@ export default async function HomePage() {
       {/* 1. Hero Carousel ("Sundara Matrix") */}
       {trendingMedia.length > 0 && <HeroCarousel items={trendingMedia} />}
 
-      {/* 2. Real-Time Latest Releases Feed */}
+      {/* 2. Real-Time Latest Releases Feed (Deduplicated Unique Manga) */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-sanctum-border">
           <div className="flex items-center gap-2">
@@ -109,7 +149,7 @@ export default async function HomePage() {
                 LATEST RELEASES
               </h2>
               <p className="font-mono text-xs text-ashram-muted">
-                Freshly released chapters ready to read now
+                Freshly released chapters with verified English translations
               </p>
             </div>
           </div>
@@ -126,17 +166,16 @@ export default async function HomePage() {
         {/* Latest Chapters Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {latestChapters.map((chapter) => (
-            <Link
-              key={chapter.externalChapId}
-              href={`/read/${chapter.externalChapId}`}
-              className="group block focus:outline-none"
-            >
+            <div key={chapter.externalChapId} className="group flex flex-col h-full">
               <YantraCard
                 glowColor="sindoor"
                 className="h-full flex flex-col bg-sanctum/90 hover:border-sindoor/60 transition-all duration-300"
               >
-                {/* Cover Image */}
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-void">
+                {/* Cover Image links to Series */}
+                <Link
+                  href={`/manga/${chapter.mangaExternalId}`}
+                  className="relative aspect-[3/4] w-full overflow-hidden bg-void block"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`/api/proxy/image?url=${encodeURIComponent(chapter.coverUrl)}`}
@@ -150,25 +189,31 @@ export default async function HomePage() {
                       CH. {chapter.chapterNumber}
                     </span>
                   </div>
-                </div>
+                </Link>
 
-                {/* Info */}
+                {/* Info & Direct Read */}
                 <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-                  <div>
+                  <Link href={`/manga/${chapter.mangaExternalId}`}>
                     <h3 className="font-hud font-bold text-sm text-ashram group-hover:text-sindoor-glow transition-colors line-clamp-2 leading-snug">
                       {chapter.mangaTitle}
                     </h3>
                     <p className="font-mono text-[10px] text-ashram-muted/70 line-clamp-1 mt-1">
                       English Translation
                     </p>
-                  </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono text-ashram-muted">
-                    <span className="group-hover:text-sindoor transition-colors font-bold text-sindoor">READ CH. {chapter.chapterNumber} →</span>
+                  </Link>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono">
+                    <Link
+                      href={`/read/${chapter.externalChapId}`}
+                      className="font-bold text-sindoor hover:text-sindoor-glow transition-colors flex items-center gap-1"
+                    >
+                      READ NOW →
+                    </Link>
                     <span className="text-gada-bright font-bold">NEW</span>
                   </div>
                 </div>
               </YantraCard>
-            </Link>
+            </div>
           ))}
         </div>
       </section>

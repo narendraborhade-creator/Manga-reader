@@ -29,11 +29,9 @@ export async function GET(req: NextRequest) {
     // Unified deduplication map keyed by normalized title
     const unifiedMap = new Map<string, any>();
 
-    // 1. First add MangaDex items (richest metadata and tags)
+    // 1. Add MangaDex items
     for (const dex of dexResults) {
-      const key = normalizeKey(dex.title);
-      if (!key) continue;
-      unifiedMap.set(key, {
+      const entry = {
         id: dex.id,
         title: dex.title,
         altTitles: dex.altTitles || [],
@@ -47,7 +45,18 @@ export async function GET(req: NextRequest) {
         year: dex.year,
         author: dex.author,
         artist: dex.artist,
-      });
+      };
+
+      const key = normalizeKey(dex.title);
+      if (key) unifiedMap.set(key, entry);
+
+      // Register alternative titles so English variants point to the same entry
+      for (const alt of dex.altTitles || []) {
+        const altKey = normalizeKey(alt);
+        if (altKey && !unifiedMap.has(altKey)) {
+          unifiedMap.set(altKey, entry);
+        }
+      }
     }
 
     // 2. Merge MangaPill items
@@ -57,7 +66,6 @@ export async function GET(req: NextRequest) {
 
       const existing = unifiedMap.get(key);
       if (existing) {
-        // Enrich existing entry
         if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
           existing.coverUrl = pill.coverUrl;
         }
@@ -66,6 +74,10 @@ export async function GET(req: NextRequest) {
         }
         if (pill.genres?.length) {
           existing.tags = Array.from(new Set([...existing.tags, ...pill.genres]));
+        }
+        // Prefer English title from MangaPill if existing is non-ascii or romaji
+        if (/^[\x20-\x7E]+$/.test(pill.title) && !/^[\x20-\x7E]+$/.test(existing.title)) {
+          existing.title = pill.title;
         }
       } else {
         unifiedMap.set(key, {
@@ -99,6 +111,10 @@ export async function GET(req: NextRequest) {
         if (weeb.genres?.length) {
           existing.tags = Array.from(new Set([...existing.tags, ...weeb.genres]));
         }
+        // WeebCentral always uses clean English titles (e.g. "Solo Leveling", "Tower of God")
+        if (/^[\x20-\x7E]+$/.test(weeb.title)) {
+          existing.title = weeb.title;
+        }
       } else {
         unifiedMap.set(key, {
           id: weeb.id,
@@ -115,10 +131,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    let combined = Array.from(unifiedMap.values());
+    let combined = Array.from(new Set(unifiedMap.values()));
 
-    // Sort with highest precision:
-    // Exact match > StartsWith match > Word match > Partial match
+    // Precision sorting:
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       const qClean = q.replace(/[^a-z0-9]/g, "");

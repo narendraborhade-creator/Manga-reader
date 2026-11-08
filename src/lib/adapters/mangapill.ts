@@ -65,7 +65,9 @@ export async function searchMangaPill(
         const rawId = href ? href.split("/manga/")[1] : "";
         if (!rawId) return null;
 
-        const title = $(el).find("div > a > div").text().trim() || "Manga Title";
+        const rawTitle = $(el).find("div > a > div").text().trim() || "Manga Title";
+        const titleLines = rawTitle.split("\n").map((s) => s.trim()).filter(Boolean);
+        const title = titleLines.length > 1 ? titleLines[titleLines.length - 1] : (titleLines[0] || "Manga Title");
         const image = $(el).find("a img").attr("data-src") || getMangaPillCover(rawId);
 
         return {

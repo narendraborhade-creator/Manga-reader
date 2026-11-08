@@ -21,11 +21,16 @@ export function unifyAndSortChapters(
 
   const groups: ChapterGroup[] = [];
   for (const [chapterNumber, list] of byNumber.entries()) {
-    // Prioritize English language, then MangaDex direct CDN, then newest upload
+    // Prioritize high-reliability direct streaming CDNs (MangaPill, WeebCentral), then hosted MangaDex
     list.sort((a, b) => {
-      if (a.sourceType !== b.sourceType) {
-        return a.sourceType === "MANGADEX" ? -1 : 1;
-      }
+      const getPriority = (c: NormalizedChapter) => {
+        if (c.sourceType === "MANGAPILL") return 3;
+        if (c.sourceType === "WEEBCENTRAL") return 2;
+        if (c.sourceType === "MANGADEX" && !c.externalUrl) return 1;
+        return 0;
+      };
+      const diff = getPriority(b) - getPriority(a);
+      if (diff !== 0) return diff;
       return (
         new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
       );
