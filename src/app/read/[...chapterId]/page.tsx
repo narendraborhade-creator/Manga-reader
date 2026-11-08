@@ -182,6 +182,12 @@ export default function ReaderPage({
           {error || "Unable to retrieve pages for this chapter stream."}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
+          <Link
+            href={`/manga/${extractMangaId(chapterId, pageData)}`}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gada/20 text-gada-bright border border-gada/50 font-hud font-bold uppercase text-xs rounded hover:bg-gada hover:text-void transition-all shadow-gada-gold"
+          >
+            SERIES CODEX
+          </Link>
           <button
             onClick={() => loadChapter(chapterId, quality)}
             className="flex items-center gap-2 px-5 py-2.5 bg-sindoor hover:bg-sindoor-glow text-white font-hud font-bold uppercase text-xs rounded transition-all shadow-sindoor-neon"

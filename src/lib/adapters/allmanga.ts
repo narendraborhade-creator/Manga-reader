@@ -130,11 +130,13 @@ export async function fetchAllMangaDetails(rawId: string) {
       manga(_id: $mangaId) {
         _id
         name
+        englishName
         thumbnail
         description
         status
         authors
         genres
+        altNames
         availableChaptersDetail
       }
     }`;
@@ -181,6 +183,7 @@ export async function fetchAllMangaDetails(rawId: string) {
       id: `allmanga-${m._id}`,
       rawId: m._id,
       title: m.name,
+      altTitles: Array.from(new Set([m.englishName, ...(m.altNames || [])].filter(Boolean))) as string[],
       description: m.description ? m.description.replace(/<[^>]*>?/gm, "") : "",
       coverUrl: cover,
       status: m.status?.toUpperCase() || "RELEASING",

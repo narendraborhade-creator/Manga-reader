@@ -5,27 +5,9 @@ import { fetchWeebCentralDetails, searchWeebCentral } from "@/lib/adapters/weebc
 import { fetchAllMangaDetails, searchAllManga } from "@/lib/adapters/allmanga";
 import { fetchAsuraDetails, searchAsura } from "@/lib/adapters/asura";
 import { fetchRichMangaMetadata } from "@/lib/adapters/anilist";
-import { unifyAndSortChapters } from "@/lib/aggregator";
+import { unifyAndSortChapters, cleanKey, isStrictTitleMatch } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
-
-function cleanKey(t: string): string {
-  return t.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
-function isStrictTitleMatch(candidate: string, targets: string[]): boolean {
-  const c = cleanKey(candidate);
-  if (!c) return false;
-  for (const t of targets) {
-    const target = cleanKey(t);
-    if (!target) continue;
-    if (c === target) return true;
-    if (c.startsWith(target) || target.startsWith(c)) {
-      if (Math.abs(c.length - target.length) <= 5) return true;
-    }
-  }
-  return false;
-}
 
 export async function GET(
   req: NextRequest,
@@ -208,29 +190,29 @@ export async function GET(
         pageCount: 0,
       }));
 
-      // If WeebCentral has a close match, merge its chapters
+      // If WeebCentral has a strict match, merge its chapters
       if (weebMatches.length > 0) {
-        const targetWeeb =
-          weebMatches.find((w) => cleanKey(w.title) === cleanKey(pillData.title)) ||
-          weebMatches[0];
-        const weebData = await fetchWeebCentralDetails(targetWeeb.id).catch(() => null);
-        if (weebData?.chapters?.length) {
-          const weebNorm = weebData.chapters.map((ch) => ({
-            externalChapId: ch.id,
-            mangaExternalId: pillData.id,
-            mangaTitle: pillData.title,
-            coverUrl: pillData.coverUrl,
-            chapterNumber: ch.chapterNumber,
-            volumeNumber: null,
-            title: ch.title,
-            language: "en",
-            scanlator: "Mihon / WeebCentral Stream",
-            publishedAt: new Date().toISOString(),
-            sourceId: "weebcentral",
-            sourceType: "WEEBCENTRAL" as any,
-            pageCount: 0,
-          }));
-          allChapters = [...allChapters, ...weebNorm];
+        const targetWeeb = weebMatches.find((w) => isStrictTitleMatch(w.title, [pillData.title]));
+        if (targetWeeb) {
+          const weebData = await fetchWeebCentralDetails(targetWeeb.id).catch(() => null);
+          if (weebData?.chapters?.length) {
+            const weebNorm = weebData.chapters.map((ch) => ({
+              externalChapId: ch.id,
+              mangaExternalId: pillData.id,
+              mangaTitle: pillData.title,
+              coverUrl: pillData.coverUrl,
+              chapterNumber: ch.chapterNumber,
+              volumeNumber: null,
+              title: ch.title,
+              language: "en",
+              scanlator: "Mihon / WeebCentral Stream",
+              publishedAt: new Date().toISOString(),
+              sourceId: "weebcentral",
+              sourceType: "WEEBCENTRAL" as any,
+              pageCount: 0,
+            }));
+            allChapters = [...allChapters, ...weebNorm];
+          }
         }
       }
 
@@ -292,27 +274,27 @@ export async function GET(
       }));
 
       if (pillMatches.length > 0) {
-        const targetPill =
-          pillMatches.find((p) => cleanKey(p.title) === cleanKey(weebData.title)) ||
-          pillMatches[0];
-        const pillData = await fetchMangaPillDetails(targetPill.id).catch(() => null);
-        if (pillData?.chapters?.length) {
-          const pillNorm = pillData.chapters.map((ch) => ({
-            externalChapId: ch.id,
-            mangaExternalId: weebData.id,
-            mangaTitle: weebData.title,
-            coverUrl: weebData.coverUrl,
-            chapterNumber: ch.chapterNumber,
-            volumeNumber: null,
-            title: ch.title,
-            language: "en",
-            scanlator: "Mihon / MangaPill Stream",
-            publishedAt: new Date().toISOString(),
-            sourceId: "mangapill",
-            sourceType: "MANGAPILL" as any,
-            pageCount: 0,
-          }));
-          allChapters = [...allChapters, ...pillNorm];
+        const targetPill = pillMatches.find((p) => isStrictTitleMatch(p.title, [weebData.title]));
+        if (targetPill) {
+          const pillData = await fetchMangaPillDetails(targetPill.id).catch(() => null);
+          if (pillData?.chapters?.length) {
+            const pillNorm = pillData.chapters.map((ch) => ({
+              externalChapId: ch.id,
+              mangaExternalId: weebData.id,
+              mangaTitle: weebData.title,
+              coverUrl: weebData.coverUrl,
+              chapterNumber: ch.chapterNumber,
+              volumeNumber: null,
+              title: ch.title,
+              language: "en",
+              scanlator: "Mihon / MangaPill Stream",
+              publishedAt: new Date().toISOString(),
+              sourceId: "mangapill",
+              sourceType: "MANGAPILL" as any,
+              pageCount: 0,
+            }));
+            allChapters = [...allChapters, ...pillNorm];
+          }
         }
       }
 
@@ -352,11 +334,23 @@ export async function GET(
         );
       }
 
+      const candidateTitles = [allData.title, ...(allData.altTitles || [])].filter(Boolean) as string[];
+
       const [asuraMatches, pillMatches, weebMatches, richMeta] = await Promise.all([
-        searchAsura(allData.title, 2).catch(() => []),
-        searchMangaPill(allData.title, 2).catch(() => []),
-        searchWeebCentral(allData.title, 2).catch(() => []),
+        searchAsura(allData.title, 5).catch(() => []),
+        searchMangaPill(allData.title, 5).catch(() => []),
+        searchWeebCentral(allData.title, 5).catch(() => []),
         fetchRichMangaMetadata(allData.title).catch(() => ({ source: "NONE", data: null })),
+      ]);
+
+      const matchedAsura = asuraMatches.find((m) => isStrictTitleMatch(m.title, candidateTitles));
+      const matchedPill = pillMatches.find((m) => isStrictTitleMatch(m.title, candidateTitles));
+      const matchedWeeb = weebMatches.find((w) => isStrictTitleMatch(w.title, candidateTitles));
+
+      const [asuraData, pillData, weebData] = await Promise.all([
+        matchedAsura ? fetchAsuraDetails(matchedAsura.id).catch(() => null) : null,
+        matchedPill ? fetchMangaPillDetails(matchedPill.id).catch(() => null) : null,
+        matchedWeeb ? fetchWeebCentralDetails(matchedWeeb.id).catch(() => null) : null,
       ]);
 
       let allChapters = allData.chapters.map((ch) => ({
@@ -375,48 +369,61 @@ export async function GET(
         pageCount: 0,
       }));
 
-      if (asuraMatches.length > 0) {
-        const asuraData = await fetchAsuraDetails(asuraMatches[0].id).catch(() => null);
-        if (asuraData?.chapters?.length) {
-          const asuraNorm = asuraData.chapters.map((ch) => ({
-            externalChapId: ch.id,
-            mangaExternalId: allData.id,
-            mangaTitle: allData.title,
-            coverUrl: allData.coverUrl,
-            chapterNumber: ch.chapterNumber,
-            volumeNumber: null,
-            title: ch.title,
-            language: "en",
-            scanlator: "Asura Scans HD Stream",
-            publishedAt: ch.publishedAt,
-            sourceId: "asura",
-            sourceType: "ASURA" as any,
-            pageCount: 0,
-          }));
-          allChapters = [...allChapters, ...asuraNorm];
-        }
+      if (asuraData?.chapters?.length) {
+        const asuraNorm = asuraData.chapters.map((ch) => ({
+          externalChapId: ch.id,
+          mangaExternalId: allData.id,
+          mangaTitle: allData.title,
+          coverUrl: allData.coverUrl,
+          chapterNumber: ch.chapterNumber,
+          volumeNumber: null,
+          title: ch.title,
+          language: "en",
+          scanlator: "Asura Scans HD Stream",
+          publishedAt: ch.publishedAt,
+          sourceId: "asura",
+          sourceType: "ASURA" as any,
+          pageCount: 0,
+        }));
+        allChapters = [...allChapters, ...asuraNorm];
       }
 
-      if (pillMatches.length > 0) {
-        const pillData = await fetchMangaPillDetails(pillMatches[0].id).catch(() => null);
-        if (pillData?.chapters?.length) {
-          const pillNorm = pillData.chapters.map((ch) => ({
-            externalChapId: ch.id,
-            mangaExternalId: allData.id,
-            mangaTitle: allData.title,
-            coverUrl: allData.coverUrl,
-            chapterNumber: ch.chapterNumber,
-            volumeNumber: null,
-            title: ch.title,
-            language: "en",
-            scanlator: "Mihon / MangaPill Mirror",
-            publishedAt: new Date().toISOString(),
-            sourceId: "mangapill",
-            sourceType: "MANGAPILL" as any,
-            pageCount: 0,
-          }));
-          allChapters = [...allChapters, ...pillNorm];
-        }
+      if (pillData?.chapters?.length) {
+        const pillNorm = pillData.chapters.map((ch) => ({
+          externalChapId: ch.id,
+          mangaExternalId: allData.id,
+          mangaTitle: allData.title,
+          coverUrl: allData.coverUrl,
+          chapterNumber: ch.chapterNumber,
+          volumeNumber: null,
+          title: ch.title,
+          language: "en",
+          scanlator: "Mihon / MangaPill Mirror",
+          publishedAt: new Date().toISOString(),
+          sourceId: "mangapill",
+          sourceType: "MANGAPILL" as any,
+          pageCount: 0,
+        }));
+        allChapters = [...allChapters, ...pillNorm];
+      }
+
+      if (weebData?.chapters?.length) {
+        const weebNorm = weebData.chapters.map((ch) => ({
+          externalChapId: ch.id,
+          mangaExternalId: allData.id,
+          mangaTitle: allData.title,
+          coverUrl: allData.coverUrl,
+          chapterNumber: ch.chapterNumber,
+          volumeNumber: null,
+          title: ch.title,
+          language: "en",
+          scanlator: "Mihon / WeebCentral Stream",
+          publishedAt: new Date().toISOString(),
+          sourceId: "weebcentral",
+          sourceType: "WEEBCENTRAL" as any,
+          pageCount: 0,
+        }));
+        allChapters = [...allChapters, ...weebNorm];
       }
 
       const chapterGroups = unifyAndSortChapters(allChapters as any);

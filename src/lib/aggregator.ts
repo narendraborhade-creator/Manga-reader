@@ -7,6 +7,35 @@ export interface ChapterGroup {
   alternatives: NormalizedChapter[];
 }
 
+export function cleanKey(t: string): string {
+  if (!t) return "";
+  return t
+    .toLowerCase()
+    .replace(/\b(official|webtoon|colored|color|manga|manhwa|manhua|scanlation|scans|raw|comic)\b/gi, "")
+    .replace(/^the\b/gi, "")
+    .replace(/[^a-z0-9]/g, "");
+}
+
+export function isStrictTitleMatch(candidate: string, targets: string[]): boolean {
+  const c = cleanKey(candidate);
+  if (!c || c.length < 2) return false;
+
+  for (const t of targets) {
+    const target = cleanKey(t);
+    if (!target || target.length < 2) continue;
+
+    // Exact cleaned match
+    if (c === target) return true;
+
+    // Very close match (prefix match with at most 3 character difference)
+    if (c.startsWith(target) || target.startsWith(c)) {
+      if (Math.abs(c.length - target.length) <= 3) return true;
+    }
+  }
+
+  return false;
+}
+
 export function unifyAndSortChapters(
   chapters: NormalizedChapter[]
 ): ChapterGroup[] {

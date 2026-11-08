@@ -72,7 +72,7 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
             Page Stream Interrupted
           </h4>
           <p className="font-mono text-xs text-ashram-muted mb-4">
-            MangaDex node or image stream timed out. Tap below to reconnect.
+            Image stream connection interrupted or timed out. Tap below to reconnect.
           </p>
           <button
             onClick={handleManualRetry}
