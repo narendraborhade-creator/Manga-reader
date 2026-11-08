@@ -352,7 +352,8 @@ export async function GET(
         );
       }
 
-      const [pillMatches, weebMatches, richMeta] = await Promise.all([
+      const [asuraMatches, pillMatches, weebMatches, richMeta] = await Promise.all([
+        searchAsura(allData.title, 2).catch(() => []),
         searchMangaPill(allData.title, 2).catch(() => []),
         searchWeebCentral(allData.title, 2).catch(() => []),
         fetchRichMangaMetadata(allData.title).catch(() => ({ source: "NONE", data: null })),
@@ -373,6 +374,28 @@ export async function GET(
         sourceType: "ALLMANGA" as any,
         pageCount: 0,
       }));
+
+      if (asuraMatches.length > 0) {
+        const asuraData = await fetchAsuraDetails(asuraMatches[0].id).catch(() => null);
+        if (asuraData?.chapters?.length) {
+          const asuraNorm = asuraData.chapters.map((ch) => ({
+            externalChapId: ch.id,
+            mangaExternalId: allData.id,
+            mangaTitle: allData.title,
+            coverUrl: allData.coverUrl,
+            chapterNumber: ch.chapterNumber,
+            volumeNumber: null,
+            title: ch.title,
+            language: "en",
+            scanlator: "Asura Scans HD Stream",
+            publishedAt: ch.publishedAt,
+            sourceId: "asura",
+            sourceType: "ASURA" as any,
+            pageCount: 0,
+          }));
+          allChapters = [...allChapters, ...asuraNorm];
+        }
+      }
 
       if (pillMatches.length > 0) {
         const pillData = await fetchMangaPillDetails(pillMatches[0].id).catch(() => null);

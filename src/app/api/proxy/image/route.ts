@@ -34,6 +34,44 @@ function setCached(key: string, val: { buffer: Buffer; contentType: string }) {
   imageCache.set(key, { ...val, time: Date.now() });
 }
 
+function isValidImageBuffer(buffer: Buffer): { isValid: boolean; contentType: string } {
+  if (!buffer || buffer.length < 8) return { isValid: false, contentType: "" };
+
+  const strStart = buffer.slice(0, 40).toString("utf-8").trimStart().toLowerCase();
+  if (
+    strStart.startsWith("<") ||
+    strStart.startsWith("<!--") ||
+    strStart.startsWith("<!doctype") ||
+    strStart.includes("<html") ||
+    strStart.includes("<script")
+  ) {
+    return { isValid: false, contentType: "" };
+  }
+
+  // PNG
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+    return { isValid: true, contentType: "image/png" };
+  }
+  // JPEG
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { isValid: true, contentType: "image/jpeg" };
+  }
+  // WebP (RIFF .... WEBP)
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+    return { isValid: true, contentType: "image/webp" };
+  }
+  // GIF
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return { isValid: true, contentType: "image/gif" };
+  }
+
+  if (buffer.length > 512 && !strStart.includes("html") && !strStart.includes("script")) {
+    return { isValid: true, contentType: "image/jpeg" };
+  }
+
+  return { isValid: false, contentType: "" };
+}
+
 function fetchWithCurl(
   url: string,
   referer?: string
@@ -51,23 +89,12 @@ function fetchWithCurl(
     cp.on("close", (code) => {
       if (code === 0 && chunks.length > 0) {
         const buffer = Buffer.concat(chunks);
-        let contentType = "image/jpeg";
-        if (
-          buffer[0] === 0x89 &&
-          buffer[1] === 0x50 &&
-          buffer[2] === 0x4e &&
-          buffer[3] === 0x47
-        ) {
-          contentType = "image/png";
-        } else if (
-          buffer[0] === 0x52 &&
-          buffer[1] === 0x49 &&
-          buffer[2] === 0x46 &&
-          buffer[3] === 0x46
-        ) {
-          contentType = "image/webp";
+        const check = isValidImageBuffer(buffer);
+        if (check.isValid) {
+          resolve({ buffer, contentType: check.contentType });
+        } else {
+          resolve(null);
         }
-        resolve({ buffer, contentType });
       } else {
         resolve(null);
       }
@@ -150,17 +177,23 @@ export async function GET(req: NextRequest) {
     });
 
     if (upstream.ok && upstream.body) {
-      const contentType = upstream.headers.get("content-type") || "image/jpeg";
-      const buffer = Buffer.from(await upstream.arrayBuffer());
-      setCached(targetUrl, { buffer, contentType });
-      return new NextResponse(new Uint8Array(buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
+      const declaredType = (upstream.headers.get("content-type") || "").toLowerCase();
+      if (!declaredType.includes("text/html") && !declaredType.includes("application/json")) {
+        const buffer = Buffer.from(await upstream.arrayBuffer());
+        const check = isValidImageBuffer(buffer);
+        if (check.isValid) {
+          const finalType = check.contentType || declaredType || "image/jpeg";
+          setCached(targetUrl, { buffer, contentType: finalType });
+          return new NextResponse(new Uint8Array(buffer), {
+            status: 200,
+            headers: {
+              "Content-Type": finalType,
+              "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+      }
     }
 
     // Upstream failed or returned bot challenge (403) -> Fallback to curl

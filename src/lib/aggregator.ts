@@ -24,10 +24,11 @@ export function unifyAndSortChapters(
     // Prioritize high-reliability direct streaming CDNs (MangaPill, WeebCentral), then hosted MangaDex
     list.sort((a, b) => {
       const getPriority = (c: NormalizedChapter) => {
+        if ((c.sourceType as string) === "ASURA") return 5;
         if (c.sourceType === "MANGAPILL") return 4;
-        if (c.sourceType === "ALLMANGA") return 3;
-        if (c.sourceType === "WEEBCENTRAL") return 2;
-        if (c.sourceType === "MANGADEX" && !c.externalUrl) return 1;
+        if (c.sourceType === "WEEBCENTRAL") return 3;
+        if (c.sourceType === "MANGADEX" && !c.externalUrl) return 2;
+        if (c.sourceType === "ALLMANGA") return 1;
         return 0;
       };
       const diff = getPriority(b) - getPriority(a);

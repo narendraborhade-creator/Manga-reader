@@ -3,7 +3,7 @@ import { resolveMangaDexChapterPages } from "@/lib/adapters/mangadex";
 import { fetchMangaPillChapterPages, searchMangaPill, fetchMangaPillDetails } from "@/lib/adapters/mangapill";
 import { fetchWeebCentralChapterPages, searchWeebCentral, fetchWeebCentralDetails } from "@/lib/adapters/weebcentral";
 import { fetchAllMangaChapterPages, fetchAllMangaDetails } from "@/lib/adapters/allmanga";
-import { fetchAsuraChapterPages } from "@/lib/adapters/asura";
+import { fetchAsuraChapterPages, searchAsura, fetchAsuraDetails } from "@/lib/adapters/asura";
 
 export const dynamic = "force-dynamic";
 
@@ -104,7 +104,109 @@ export async function GET(
       const parts = id.replace(/^allmanga-/, "").split("-");
       const mangaId = parts[0];
       const chapterString = decodeURIComponent(parts.slice(1).join("-") || "1");
+      const targetNum = parseFloat(chapterString) || 1;
 
+      // Look up series title to cross-reference with clean high-definition sources first
+      const allMangaMeta = await fetchAllMangaDetails(mangaId);
+      const title = allMangaMeta?.title;
+
+      if (title) {
+        // 1. Try Asura Scans first (unblocked HD manhwa/manga stream)
+        const asuraMatches = await searchAsura(title, 2).catch(() => []);
+        if (asuraMatches.length > 0) {
+          const asuraData = await fetchAsuraDetails(asuraMatches[0].id).catch(() => null);
+          const matchedCh = asuraData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+          );
+          if (matchedCh) {
+            const asuraPages = await fetchAsuraChapterPages(matchedCh.seriesSlug, matchedCh.chapterSlug);
+            if (asuraPages && asuraPages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  mangaId: `allmanga-${mangaId}`,
+                  mangaTitle: title,
+                  chapterNumber: targetNum,
+                  chapterTitle: `Chapter ${targetNum}`,
+                  baseUrl: "https://asurascans.com",
+                  hash: "",
+                  quality,
+                  files: asuraPages.pages,
+                  proxiedPages: asuraPages.proxiedPages,
+                  directPages: asuraPages.pages,
+                  sourceName: "Asura Scans HD Stream",
+                },
+              });
+            }
+          }
+        }
+
+        // 2. Try MangaPill
+        const pillMatches = await searchMangaPill(title, 2).catch(() => []);
+        if (pillMatches.length > 0) {
+          const pillData = await fetchMangaPillDetails(pillMatches[0].id).catch(() => null);
+          const matchedCh =
+            pillData?.chapters.find(
+              (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+            ) || pillData?.chapters[0];
+          if (matchedCh) {
+            const fallbackPages = await fetchMangaPillChapterPages(matchedCh.id);
+            if (fallbackPages && fallbackPages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  mangaId: `allmanga-${mangaId}`,
+                  mangaTitle: title,
+                  chapterNumber: targetNum,
+                  chapterTitle: `Chapter ${targetNum}`,
+                  baseUrl: "https://mangapill.com",
+                  hash: "",
+                  quality,
+                  files: fallbackPages.pages,
+                  proxiedPages: fallbackPages.proxiedPages,
+                  directPages: fallbackPages.pages,
+                  sourceName: "MangaPill Mirror",
+                },
+              });
+            }
+          }
+        }
+
+        // 3. Try WeebCentral
+        const weebMatches = await searchWeebCentral(title, 2).catch(() => []);
+        if (weebMatches.length > 0) {
+          const weebData = await fetchWeebCentralDetails(weebMatches[0].id).catch(() => null);
+          const matchedCh = weebData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+          );
+          if (matchedCh) {
+            const weebPages = await fetchWeebCentralChapterPages(matchedCh.id);
+            if (weebPages && weebPages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  mangaId: `allmanga-${mangaId}`,
+                  mangaTitle: title,
+                  chapterNumber: targetNum,
+                  chapterTitle: `Chapter ${targetNum}`,
+                  baseUrl: "https://weebcentral.com",
+                  hash: "",
+                  quality,
+                  files: weebPages.pages,
+                  proxiedPages: weebPages.proxiedPages,
+                  directPages: weebPages.pages,
+                  sourceName: "WeebCentral Stream",
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // 4. Fallback to AllManga direct stream
       const allMangaPages = await fetchAllMangaChapterPages(mangaId, chapterString);
       if (allMangaPages && allMangaPages.pages.length > 0) {
         return NextResponse.json({
@@ -112,7 +214,8 @@ export async function GET(
           data: {
             chapterId: id,
             mangaId: `allmanga-${mangaId}`,
-            mangaTitle: `Chapter ${chapterString}`,
+            mangaTitle: title || `Chapter ${chapterString}`,
+            chapterNumber: targetNum,
             chapterTitle: `Chapter ${chapterString}`,
             baseUrl: "https://allanime.site",
             hash: "",
@@ -123,40 +226,6 @@ export async function GET(
             sourceName: "AllManga Stream",
           },
         });
-      }
-
-      // Fallback to MangaPill or WeebCentral
-      const allMangaMeta = await fetchAllMangaDetails(mangaId);
-      const title = allMangaMeta?.title;
-      if (title) {
-        const pillMatches = await searchMangaPill(title, 2).catch(() => []);
-        if (pillMatches.length > 0) {
-          const pillData = await fetchMangaPillDetails(pillMatches[0].id);
-          const targetNum = parseFloat(chapterString) || 1;
-          const matchedCh =
-            pillData?.chapters.find(
-              (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
-            ) || pillData?.chapters[0];
-
-          if (matchedCh) {
-            const fallbackPages = await fetchMangaPillChapterPages(matchedCh.id);
-            if (fallbackPages && fallbackPages.pages.length > 0) {
-              return NextResponse.json({
-                success: true,
-                data: {
-                  chapterId: id,
-                  baseUrl: "https://mangapill.com",
-                  hash: "",
-                  quality,
-                  files: fallbackPages.pages,
-                  proxiedPages: fallbackPages.proxiedPages,
-                  directPages: fallbackPages.pages,
-                  sourceName: "Vajra Cloud Stream",
-                },
-              });
-            }
-          }
-        }
       }
     }
 
