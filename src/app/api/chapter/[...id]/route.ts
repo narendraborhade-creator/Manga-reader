@@ -32,6 +32,9 @@ export async function GET(
           success: true,
           data: {
             chapterId: id,
+            mangaId: `asura-${seriesSlug}`,
+            mangaTitle: seriesSlug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+            chapterTitle: chapterSlug.replace(/-/g, " ").toUpperCase(),
             baseUrl: "https://asurascans.com",
             hash: "",
             quality,
@@ -50,17 +53,21 @@ export async function GET(
     if (id.startsWith("mangapill-")) {
       const pillPages = await fetchMangaPillChapterPages(id);
       if (pillPages && pillPages.pages.length > 0) {
+        const match = id.match(/^mangapill-(\d+)(?:-\d+)?\/(.*)$/);
+        const resolvedMangaId = match ? `mangapill-${match[1]}/${match[2]}` : id;
         const response = NextResponse.json({
           success: true,
           data: {
             chapterId: id,
+            mangaId: resolvedMangaId,
+            mangaTitle: match ? match[2].replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()) : "Manga",
             baseUrl: "https://mangapill.com",
             hash: "",
             quality,
             files: pillPages.pages,
             proxiedPages: pillPages.proxiedPages,
             directPages: pillPages.pages,
-            sourceName: "Vajra Cloud Stream",
+            sourceName: "MangaPill Mirror",
           },
         });
         response.headers.set("Cache-Control", "public, max-age=3600");
@@ -76,6 +83,8 @@ export async function GET(
           success: true,
           data: {
             chapterId: id,
+            mangaId: id,
+            mangaTitle: "WeebCentral Stream",
             baseUrl: "https://weebcentral.com",
             hash: "",
             quality,
@@ -102,13 +111,16 @@ export async function GET(
           success: true,
           data: {
             chapterId: id,
+            mangaId: `allmanga-${mangaId}`,
+            mangaTitle: `Chapter ${chapterString}`,
+            chapterTitle: `Chapter ${chapterString}`,
             baseUrl: "https://allanime.site",
             hash: "",
             quality,
             files: allMangaPages.pages,
             proxiedPages: allMangaPages.proxiedPages,
             directPages: allMangaPages.pages,
-            sourceName: "Vajra Cloud Stream",
+            sourceName: "AllManga Stream",
           },
         });
       }
@@ -150,11 +162,38 @@ export async function GET(
 
     // 4. Handle MangaDex@Home Resolver with Automatic Mirror Failover
     try {
-      const result = await resolveMangaDexChapterPages(id, quality);
+      const [result, chRes] = await Promise.all([
+        resolveMangaDexChapterPages(id, quality),
+        fetch(`https://api.mangadex.org/chapter/${id}?includes[]=manga`, {
+          headers: { "User-Agent": "VajraMangaReader/1.0" },
+          signal: AbortSignal.timeout(3000),
+        }).catch(() => null),
+      ]);
+
       if (result && result.proxiedPages && result.proxiedPages.length > 0) {
+        let mangaId = "";
+        let mangaTitle = "";
+        let chapterNum = 1;
+        if (chRes && chRes.ok) {
+          try {
+            const chJson = await chRes.json();
+            const rel = chJson.data?.relationships?.find((r: any) => r.type === "manga");
+            if (rel?.id) mangaId = rel.id;
+            const tObj = rel?.attributes?.title || {};
+            mangaTitle = tObj.en || Object.values(tObj)[0] || "";
+            chapterNum = parseFloat(chJson.data?.attributes?.chapter || "1") || 1;
+          } catch {}
+        }
+
         const response = NextResponse.json({
           success: true,
-          data: result,
+          data: {
+            ...result,
+            mangaId: mangaId || id,
+            mangaTitle: mangaTitle || "Manga Codex",
+            chapterNumber: chapterNum,
+            chapterTitle: `Chapter ${chapterNum}`,
+          },
         });
         response.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
         return response;

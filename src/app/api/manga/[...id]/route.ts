@@ -117,7 +117,9 @@ export async function GET(
 
     // 0.5. Handle Asura Source Directly
     if (id.startsWith("asura-")) {
-      const asuraData = await fetchAsuraDetails(id);
+      const parts = id.replace(/^asura-/, "").split("/").filter(Boolean);
+      const seriesSlug = parts[0];
+      const asuraData = await fetchAsuraDetails(seriesSlug);
       if (!asuraData) {
         return NextResponse.json(
           { success: false, error: "Series not found on Asura Scans" },
@@ -170,7 +172,13 @@ export async function GET(
 
     // 1. Handle MangaPill Source Directly
     if (id.startsWith("mangapill-")) {
-      const pillData = await fetchMangaPillDetails(id);
+      let pillData = await fetchMangaPillDetails(id);
+      if (!pillData && id.includes("-")) {
+        const match = id.match(/^mangapill-(\d+)(?:-\d+)?\/(.*)$/);
+        if (match) {
+          pillData = await fetchMangaPillDetails(`mangapill-${match[1]}/${match[2]}`);
+        }
+      }
       if (!pillData) {
         return NextResponse.json(
           { success: false, error: "Series not found on MangaPill" },
@@ -335,7 +343,8 @@ export async function GET(
 
     // 3. Handle AllManga Source Directly
     if (id.startsWith("allmanga-")) {
-      const allData = await fetchAllMangaDetails(id);
+      const cleanMangaId = id.replace(/^allmanga-/, "").split("-")[0];
+      const allData = await fetchAllMangaDetails(`allmanga-${cleanMangaId}`);
       if (!allData) {
         return NextResponse.json(
           { success: false, error: "Series not found on AllManga" },
@@ -413,7 +422,22 @@ export async function GET(
     }
 
     // 4. Handle MangaDex Source (and cross-merge with AllManga, MangaPill & WeebCentral)
-    const mangaDexData = await fetchMangaDexDetails(id);
+    let mangaDexData = await fetchMangaDexDetails(id);
+    if (!mangaDexData) {
+      try {
+        const chRes = await fetch(`https://api.mangadex.org/chapter/${id}?includes[]=manga`, {
+          headers: { "User-Agent": "VajraMangaReader/1.0" },
+          signal: AbortSignal.timeout(3000),
+        });
+        if (chRes.ok) {
+          const chJson = await chRes.json();
+          const rel = chJson.data?.relationships?.find((r: any) => r.type === "manga");
+          if (rel?.id) {
+            mangaDexData = await fetchMangaDexDetails(rel.id);
+          }
+        }
+      } catch {}
+    }
     if (!mangaDexData) {
       return NextResponse.json(
         { success: false, error: "Manga not found" },

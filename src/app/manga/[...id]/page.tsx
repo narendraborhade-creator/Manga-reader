@@ -25,9 +25,23 @@ export default function MangaDetailPage({
   params: Promise<{ id: string | string[] }>;
 }) {
   const resolvedParams = use(params);
-  const id = Array.isArray(resolvedParams.id)
+  const rawId = Array.isArray(resolvedParams.id)
     ? resolvedParams.id.map(decodeURIComponent).join("/")
     : decodeURIComponent(resolvedParams.id || "");
+
+  const id = (() => {
+    if (rawId.startsWith("allmanga-") && rawId.includes("-") && rawId.split("-").length > 2) {
+      return `allmanga-${rawId.replace(/^allmanga-/, "").split("-")[0]}`;
+    }
+    if (rawId.startsWith("asura-") && rawId.includes("/")) {
+      return `asura-${rawId.replace(/^asura-/, "").split("/")[0]}`;
+    }
+    if (rawId.startsWith("mangapill-") && rawId.includes("-")) {
+      const match = rawId.match(/^mangapill-(\d+)(?:-\d+)?\/(.*)$/);
+      if (match) return `mangapill-${match[1]}/${match[2]}`;
+    }
+    return rawId;
+  })();
   const [manga, setManga] = useState<MangaDetailsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

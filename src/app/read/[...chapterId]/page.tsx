@@ -11,6 +11,22 @@ import { CyberGadaLoader } from "@/components/hud/CyberGadaLoader";
 import { saveReadingProgress } from "@/lib/bookmarks";
 import { CheckCircle, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react";
 
+function extractMangaId(chapId: string, pageData?: any): string {
+  if (pageData?.mangaId) return pageData.mangaId;
+  if (chapId.startsWith("allmanga-")) {
+    return `allmanga-${chapId.replace(/^allmanga-/, "").split("-")[0]}`;
+  }
+  if (chapId.startsWith("asura-")) {
+    return `asura-${chapId.replace(/^asura-/, "").split("/")[0]}`;
+  }
+  if (chapId.startsWith("mangapill-")) {
+    const match = chapId.match(/^mangapill-(\d+)(?:-\d+)?\/(.*)$/);
+    if (match) return `mangapill-${match[1]}/${match[2]}`;
+    return `mangapill-${chapId.replace(/^mangapill-/, "").split("-")[0]}`;
+  }
+  return chapId;
+}
+
 export default function ReaderPage({
   params,
 }: {
@@ -42,13 +58,14 @@ export default function ReaderPage({
           setPageData(data);
           setCurrentPage(1);
           // Persist initial progress
+          const realMangaId = extractMangaId(chapId, data);
           saveReadingProgress({
-            mangaId: chapId,
-            mangaTitle: "Manga Chapter",
+            mangaId: realMangaId,
+            mangaTitle: (data as any)?.mangaTitle || "Manga Chapter",
             coverUrl: data.directPages[0] || "",
             chapterId: chapId,
-            chapterNumber: 1,
-            chapterTitle: `Chapter Stream`,
+            chapterNumber: (data as any)?.chapterNumber || 1,
+            chapterTitle: (data as any)?.chapterTitle || `Chapter Stream`,
             page: 1,
             totalPages: data.proxiedPages.length,
             updatedAt: new Date().toISOString(),
@@ -74,13 +91,14 @@ export default function ReaderPage({
     (page: number) => {
       setCurrentPage(page);
       if (pageData) {
+        const realMangaId = extractMangaId(chapterId, pageData);
         saveReadingProgress({
-          mangaId: chapterId,
-          mangaTitle: "Manga Chapter",
+          mangaId: realMangaId,
+          mangaTitle: (pageData as any)?.mangaTitle || "Manga Chapter",
           coverUrl: pageData.directPages[0] || "",
           chapterId: chapterId,
-          chapterNumber: 1,
-          chapterTitle: `Chapter Stream`,
+          chapterNumber: (pageData as any)?.chapterNumber || 1,
+          chapterTitle: (pageData as any)?.chapterTitle || `Chapter Stream`,
           page,
           totalPages: pageData.proxiedPages.length,
           updatedAt: new Date().toISOString(),
@@ -194,9 +212,9 @@ export default function ReaderPage({
     <div className="relative min-h-screen bg-void text-ashram flex flex-col items-center select-none">
       {/* Dynamic Floating HUD Controls */}
       <ReaderControls
-        mangaId={chapterId}
-        mangaTitle="Vajra Reader"
-        chapterTitle={`Chapter Stream (${totalPages} Pages)`}
+        mangaId={extractMangaId(chapterId, pageData)}
+        mangaTitle={(pageData as any)?.mangaTitle || "Vajra Reader"}
+        chapterTitle={(pageData as any)?.chapterTitle || `Chapter Stream (${totalPages} Pages)`}
         currentPage={currentPage}
         totalPages={totalPages}
         readingMode={readingMode}
@@ -240,6 +258,12 @@ export default function ReaderPage({
             Reading progress has been synchronized to your local sanctum codex.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+            <Link
+              href={`/manga/${extractMangaId(chapterId, pageData)}`}
+              className="px-6 py-2.5 rounded-sm bg-gada/20 text-gada-bright border border-gada/50 font-hud font-bold uppercase tracking-wider text-xs hover:bg-gada hover:text-void transition-all"
+            >
+              Series Codex
+            </Link>
             <Link
               href="/"
               className="px-6 py-2.5 rounded-sm bg-void border border-sanctum-border text-ashram font-hud font-bold uppercase tracking-wider text-xs hover:border-gada transition-all"

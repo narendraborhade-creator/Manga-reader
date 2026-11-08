@@ -119,7 +119,11 @@ export async function searchAllManga(
  * Fetches AllManga details and full chapter list
  */
 export async function fetchAllMangaDetails(rawId: string) {
-  const mangaId = rawId.replace(/^allmanga-/, "");
+  let mangaId = rawId.replace(/^allmanga-/, "");
+  // If rawId was a chapter ID like "allmanga-kBuHzCdd5mzk9fvF7-1", extract the series ID
+  if (mangaId.includes("-")) {
+    mangaId = mangaId.split("-")[0];
+  }
 
   try {
     const q = `query($mangaId: String!) {
