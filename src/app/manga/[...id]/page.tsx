@@ -38,6 +38,8 @@ export default function MangaDetailPage({
   const [bookmarked, setBookmarked] = useState(false);
   const [showFullSynopsis, setShowFullSynopsis] = useState(false);
   const [readingHistory, setReadingHistory] = useState<any>({});
+  const [coverError, setCoverError] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(60);
 
   useEffect(() => {
     let isMounted = true;
@@ -131,15 +133,14 @@ export default function MangaDetailPage({
 
   const banner = manga.bannerUrl || manga.coverUrl;
   const bannerSrc =
-    banner.includes("uploads.mangadex.org") || banner.includes("anilist.co")
+    banner.includes("s4.anilist.co") || banner.includes("anilist.co")
       ? banner
       : banner.startsWith("http")
       ? `/api/proxy/image?url=${encodeURIComponent(banner)}`
       : banner;
 
   const coverSrc =
-    manga.coverUrl.includes("uploads.mangadex.org") ||
-    manga.coverUrl.includes("anilist.co")
+    manga.coverUrl.includes("s4.anilist.co") || manga.coverUrl.includes("anilist.co")
       ? manga.coverUrl
       : manga.coverUrl.startsWith("http")
       ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}`
@@ -164,14 +165,27 @@ export default function MangaDetailPage({
         {/* Header Profile Content */}
         <div className="relative px-6 pb-6 -mt-24 md:-mt-32 flex flex-col md:flex-row gap-6 items-start">
           {/* Manga Cover Card */}
-          <div className="relative w-36 sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] bg-void rounded-sm border-2 border-gada/60 shadow-gada-gold overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={coverSrc}
-              alt={manga.title}
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-            />
+          <div className="relative w-36 sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] bg-void rounded-sm border-2 border-gada/60 shadow-gada-gold overflow-hidden flex items-center justify-center">
+            {!coverError && coverSrc ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={coverSrc}
+                alt={manga.title}
+                referrerPolicy="no-referrer"
+                onError={() => setCoverError(true)}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-sanctum border border-gada/30">
+                <span className="font-mythic text-4xl text-gada-bright mb-2">ॐ</span>
+                <span className="font-hud text-xs font-bold text-ashram line-clamp-3">
+                  {manga.title}
+                </span>
+                <span className="font-mono text-[9px] text-prana mt-2 tracking-widest uppercase">
+                  VAJRA CODEX
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Metadata & Actions */}
@@ -346,7 +360,7 @@ export default function MangaDetailPage({
 
         {/* Chapter List Grid / Ledger */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredChapters.map((cg) => {
+          {filteredChapters.slice(0, displayLimit).map((cg) => {
             const isRead =
               readingHistory.chapterId === cg.primary.externalChapId;
 
@@ -378,7 +392,7 @@ export default function MangaDetailPage({
                         {cg.primary.title || `Chapter ${cg.chapterNumber}`}
                       </h4>
                       <p className="font-mono text-[10px] text-ashram-muted truncate">
-                        English Translation
+                        {cg.primary.scanlator || "English Translation"}
                       </p>
                     </div>
 
@@ -399,6 +413,17 @@ export default function MangaDetailPage({
             );
           })}
         </div>
+
+        {filteredChapters.length > displayLimit && (
+          <div className="flex justify-center pt-4">
+            <button
+              onClick={() => setDisplayLimit((prev) => prev + 60)}
+              className="px-6 py-2.5 bg-sanctum border border-gada/60 hover:bg-gada/20 text-gada-bright font-hud text-xs font-bold uppercase tracking-wider rounded transition-all shadow-sm"
+            >
+              LOAD MORE CHAPTERS ({filteredChapters.length - displayLimit} REMAINING)
+            </button>
+          </div>
+        )}
 
         {filteredChapters.length === 0 && (
           <div className="text-center py-12 bg-sanctum/50 rounded border border-sanctum-border">

@@ -33,6 +33,14 @@ const PRESETS = [
   { id: "top", label: "Top Rated", icon: Trophy },
 ];
 
+const SOURCES = [
+  { id: "all", label: "Unified Codex (All Sources)" },
+  { id: "asura", label: "Asura Scans (Manhwa HD)" },
+  { id: "mangapill", label: "MangaPill Mirror" },
+  { id: "allmanga", label: "AllManga Stream" },
+  { id: "mangadex", label: "MangaDex v5" },
+];
+
 function ExploreContent() {
   const searchParams = useSearchParams();
   const qParam = searchParams.get("q") || "";
@@ -150,6 +158,33 @@ function ExploreContent() {
           })}
         </div>
 
+        {/* Source Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sanctum-border/60">
+          <span className="font-mono text-xs text-ashram-muted uppercase mr-1">
+            SOURCE:
+          </span>
+          {SOURCES.map((s) => {
+            const active = selectedSource === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setSelectedSource(s.id);
+                  executeSearch(query, selectedGenre, selectedPreset, s.id);
+                }}
+                className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
+                  active
+                    ? "bg-prana text-void shadow-prana-cyan font-bold"
+                    : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram"
+                }`}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Genre Filter Chips */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs font-mono text-ashram-muted uppercase">
@@ -202,6 +237,8 @@ function ExploreContent() {
                 coverUrl={m.coverUrl}
                 status={m.status}
                 genres={m.tags}
+                latestChapter={(m as any).totalChapters ? `CH. ${(m as any).totalChapters}` : undefined}
+                score={(m as any).score}
               />
             ))}
           </div>

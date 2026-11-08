@@ -48,14 +48,14 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
       return null;
     }
-    // MangaDex and AniList CDNs have public CORS and don't require hotlink proxying
+    // AniList CDN is globally open without ISP blocking
     if (
-      coverUrl.includes("uploads.mangadex.org") ||
       coverUrl.includes("anilist.co") ||
       coverUrl.includes("s4.anilist.co")
     ) {
       return coverUrl;
     }
+    // MangaDex, MangaPill, AllManga, Asura etc. are routed through our proxy with curl unblocker
     if (coverUrl.startsWith("http")) {
       return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
     }

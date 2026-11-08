@@ -3,6 +3,7 @@ import { resolveMangaDexChapterPages } from "@/lib/adapters/mangadex";
 import { fetchMangaPillChapterPages, searchMangaPill, fetchMangaPillDetails } from "@/lib/adapters/mangapill";
 import { fetchWeebCentralChapterPages, searchWeebCentral, fetchWeebCentralDetails } from "@/lib/adapters/weebcentral";
 import { fetchAllMangaChapterPages, fetchAllMangaDetails } from "@/lib/adapters/allmanga";
+import { fetchAsuraChapterPages } from "@/lib/adapters/asura";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,31 @@ export async function GET(
       req.nextUrl.searchParams.get("quality") === "data-saver"
         ? "data-saver"
         : "data";
+
+    // 0. Handle Asura Source
+    if (id.startsWith("asura-")) {
+      const parts = id.replace(/^asura-/, "").split("/").filter(Boolean);
+      const seriesSlug = parts[0];
+      const chapterSlug = parts[parts.length - 1];
+      const asuraPages = await fetchAsuraChapterPages(seriesSlug, chapterSlug);
+      if (asuraPages && asuraPages.pages.length > 0) {
+        const response = NextResponse.json({
+          success: true,
+          data: {
+            chapterId: id,
+            baseUrl: "https://asurascans.com",
+            hash: "",
+            quality,
+            files: asuraPages.pages,
+            proxiedPages: asuraPages.proxiedPages,
+            directPages: asuraPages.pages,
+            sourceName: "Asura Scans HD Stream",
+          },
+        });
+        response.headers.set("Cache-Control", "public, max-age=3600");
+        return response;
+      }
+    }
 
     // 1. Handle MangaPill Source
     if (id.startsWith("mangapill-")) {

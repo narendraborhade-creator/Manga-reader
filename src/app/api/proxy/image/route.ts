@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { spawn } from "child_process";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,70 @@ const FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height
   <text x="150" y="295" font-family="system-ui, monospace" font-size="10" fill="#00FFA3" text-anchor="middle" letter-spacing="1">SACRED MANGA STREAM</text>
 </svg>`;
 
+const imageCache = new Map<string, { buffer: Buffer; contentType: string; time: number }>();
+const MAX_CACHE_SIZE = 400;
+
+function getCached(key: string) {
+  const item = imageCache.get(key);
+  if (!item) return null;
+  // Cache for 6 hours
+  if (Date.now() - item.time > 6 * 3600 * 1000) {
+    imageCache.delete(key);
+    return null;
+  }
+  return item;
+}
+
+function setCached(key: string, val: { buffer: Buffer; contentType: string }) {
+  if (imageCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = imageCache.keys().next().value;
+    if (firstKey) imageCache.delete(firstKey);
+  }
+  imageCache.set(key, { ...val, time: Date.now() });
+}
+
+function fetchWithCurl(
+  url: string,
+  referer?: string
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  return new Promise((resolve) => {
+    const args = ["-s", "-L", "--max-time", "8"];
+    if (referer) {
+      args.push("-e", referer);
+    }
+    args.push(url);
+
+    const cp = spawn("curl.exe", args);
+    const chunks: Buffer[] = [];
+    cp.stdout.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    cp.on("close", (code) => {
+      if (code === 0 && chunks.length > 0) {
+        const buffer = Buffer.concat(chunks);
+        let contentType = "image/jpeg";
+        if (
+          buffer[0] === 0x89 &&
+          buffer[1] === 0x50 &&
+          buffer[2] === 0x4e &&
+          buffer[3] === 0x47
+        ) {
+          contentType = "image/png";
+        } else if (
+          buffer[0] === 0x52 &&
+          buffer[1] === 0x49 &&
+          buffer[2] === 0x46 &&
+          buffer[3] === 0x46
+        ) {
+          contentType = "image/webp";
+        }
+        resolve({ buffer, contentType });
+      } else {
+        resolve(null);
+      }
+    });
+    cp.on("error", () => resolve(null));
+  });
+}
+
 export async function GET(req: NextRequest) {
   const targetUrl = req.nextUrl.searchParams.get("url");
 
@@ -18,6 +83,19 @@ export async function GET(req: NextRequest) {
     return new NextResponse(FALLBACK_SVG, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+    });
+  }
+
+  // Check in-memory cache first for instant 1ms response
+  const cached = getCached(targetUrl);
+  if (cached) {
+    return new NextResponse(new Uint8Array(cached.buffer), {
+      status: 200,
+      headers: {
+        "Content-Type": cached.contentType,
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   }
 
@@ -34,9 +112,27 @@ export async function GET(req: NextRequest) {
     referer = referer || "https://mangapill.com/";
   } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
     referer = referer || "https://allmanga.to/";
+  } else if (targetUrl.includes("asurascans.com") || targetUrl.includes("asuracomic.net")) {
+    referer = referer || "https://asurascans.com/";
   } else if (targetUrl.includes("mangadex")) {
-    userAgent = "VajraMangaReader/1.0";
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
     referer = undefined;
+  }
+
+  // For MangaDex, Node fetch() gets 403 or times out in India; use curl.exe immediately
+  if (targetUrl.includes("mangadex")) {
+    const curlResult = await fetchWithCurl(targetUrl, referer);
+    if (curlResult && curlResult.buffer.length > 0) {
+      setCached(targetUrl, curlResult);
+      return new NextResponse(new Uint8Array(curlResult.buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": curlResult.contentType,
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
   }
 
   try {
@@ -50,28 +146,57 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(targetUrl, {
       headers,
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
 
-    if (!upstream.ok || !upstream.body) {
-      // Return beautiful fallback SVG instead of breaking the img tag
-      return new NextResponse(FALLBACK_SVG, {
+    if (upstream.ok && upstream.body) {
+      const contentType = upstream.headers.get("content-type") || "image/jpeg";
+      const buffer = Buffer.from(await upstream.arrayBuffer());
+      setCached(targetUrl, { buffer, contentType });
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
-        headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
       });
     }
 
-    const contentType = upstream.headers.get("content-type") || "image/jpeg";
+    // Upstream failed or returned bot challenge (403) -> Fallback to curl
+    const curlResult = await fetchWithCurl(targetUrl, referer);
+    if (curlResult && curlResult.buffer.length > 0) {
+      setCached(targetUrl, curlResult);
+      return new NextResponse(new Uint8Array(curlResult.buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": curlResult.contentType,
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
 
-    return new NextResponse(upstream.body, {
+    // Both failed -> return beautiful fallback SVG
+    return new NextResponse(FALLBACK_SVG, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
     });
-  } catch (err: any) {
+  } catch {
+    // If fetch threw (e.g. timeout or socket drop), try curl
+    const curlResult = await fetchWithCurl(targetUrl, referer);
+    if (curlResult && curlResult.buffer.length > 0) {
+      setCached(targetUrl, curlResult);
+      return new NextResponse(new Uint8Array(curlResult.buffer), {
+        status: 200,
+        headers: {
+          "Content-Type": curlResult.contentType,
+          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+
     return new NextResponse(FALLBACK_SVG, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },

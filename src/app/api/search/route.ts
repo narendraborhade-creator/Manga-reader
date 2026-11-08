@@ -3,6 +3,7 @@ import { searchMangaDex } from "@/lib/adapters/mangadex";
 import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { searchAllManga } from "@/lib/adapters/allmanga";
+import { searchAsura } from "@/lib/adapters/asura";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +25,12 @@ export async function GET(req: NextRequest) {
     const sourceFilter = req.nextUrl.searchParams.get("source") || "all";
 
     // Parallel multi-engine search across all top sources
-    const [pillResults, weebResults, dexResults, allResults] = await Promise.all([
+    const [pillResults, weebResults, dexResults, allResults, asuraResults] = await Promise.all([
       searchMangaPill(cleanQuery, 24).catch(() => []),
       searchWeebCentral(cleanQuery, 24).catch(() => []),
       searchMangaDex(cleanQuery, 24).catch(() => []),
       searchAllManga(cleanQuery, 24).catch(() => []),
+      searchAsura(cleanQuery, 24).catch(() => []),
     ]);
 
     // Unified deduplication map keyed by normalized title
@@ -171,19 +173,56 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 5. Merge Asura Scans items
+    for (const asuraItem of asuraResults) {
+      const key = normalizeKey(asuraItem.title);
+      if (!key) continue;
+
+      const existing = unifiedMap.get(key);
+      if (existing) {
+        if (asuraItem.totalChapters && (!existing.totalChapters || asuraItem.totalChapters > existing.totalChapters)) {
+          existing.totalChapters = asuraItem.totalChapters;
+        }
+        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
+          existing.coverUrl = asuraItem.coverUrl;
+        }
+        if (asuraItem.genres?.length) {
+          existing.tags = Array.from(new Set([...existing.tags, ...asuraItem.genres]));
+        }
+        if (asuraItem.altTitles?.length) {
+          existing.altTitles = Array.from(new Set([...(existing.altTitles || []), ...asuraItem.altTitles]));
+        }
+      } else {
+        unifiedMap.set(key, {
+          id: asuraItem.id,
+          title: asuraItem.title,
+          altTitles: asuraItem.altTitles || [],
+          description: asuraItem.description || "",
+          coverUrl: asuraItem.coverUrl,
+          bannerUrl: asuraItem.bannerUrl || asuraItem.coverUrl,
+          status: asuraItem.status || "ONGOING",
+          score: asuraItem.score || 94,
+          tags: asuraItem.genres || [],
+          totalChapters: asuraItem.totalChapters || 0,
+        });
+      }
+    }
+
     let combined = Array.from(new Set(unifiedMap.values()));
 
     // Filter by source if requested
     if (sourceFilter && sourceFilter !== "all") {
       const sf = sourceFilter.toLowerCase();
       if (sf === "mangadex") {
-        combined = combined.filter((m) => !m.id.startsWith("mangapill-") && !m.id.startsWith("weebcentral-") && !m.id.startsWith("allmanga-"));
+        combined = combined.filter((m) => !m.id.startsWith("mangapill-") && !m.id.startsWith("weebcentral-") && !m.id.startsWith("allmanga-") && !m.id.startsWith("asura-"));
       } else if (sf === "mangapill") {
         combined = combined.filter((m) => m.id.startsWith("mangapill-"));
       } else if (sf === "weebcentral") {
         combined = combined.filter((m) => m.id.startsWith("weebcentral-"));
       } else if (sf === "allmanga") {
         combined = combined.filter((m) => m.id.startsWith("allmanga-"));
+      } else if (sf === "asura") {
+        combined = combined.filter((m) => m.id.startsWith("asura-"));
       }
     }
 

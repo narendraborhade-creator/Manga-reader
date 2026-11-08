@@ -188,12 +188,12 @@ export const Navbar: React.FC = () => {
                       className="w-full px-3 py-2 text-left flex items-center gap-3 hover:bg-gada-dim hover:border-l-2 hover:border-gada transition-all group"
                     >
                       {/* Thumbnail */}
-                      <div className="w-9 h-12 bg-void flex-shrink-0 rounded overflow-hidden border border-sanctum-border relative">
-                        {item.coverUrl ? (
+                      <div className="w-9 h-12 bg-void flex-shrink-0 rounded overflow-hidden border border-sanctum-border relative flex items-center justify-center">
+                        {item.coverUrl && !item.coverUrl.includes("placeholder") ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={
-                              item.coverUrl.includes("uploads.mangadex.org") ||
+                              item.coverUrl.includes("s4.anilist.co") ||
                               item.coverUrl.includes("anilist.co")
                                 ? item.coverUrl
                                 : `/api/proxy/image?url=${encodeURIComponent(item.coverUrl)}`

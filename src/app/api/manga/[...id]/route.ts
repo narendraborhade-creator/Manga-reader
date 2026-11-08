@@ -3,6 +3,7 @@ import { fetchMangaDexDetails, fetchMangaDexChapterFeed, searchMangaDex } from "
 import { fetchMangaPillDetails, searchMangaPill } from "@/lib/adapters/mangapill";
 import { fetchWeebCentralDetails, searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { fetchAllMangaDetails, searchAllManga } from "@/lib/adapters/allmanga";
+import { fetchAsuraDetails, searchAsura } from "@/lib/adapters/asura";
 import { fetchRichMangaMetadata } from "@/lib/adapters/anilist";
 import { unifyAndSortChapters } from "@/lib/aggregator";
 
@@ -10,6 +11,20 @@ export const dynamic = "force-dynamic";
 
 function cleanKey(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function isStrictTitleMatch(candidate: string, targets: string[]): boolean {
+  const c = cleanKey(candidate);
+  if (!c) return false;
+  for (const t of targets) {
+    const target = cleanKey(t);
+    if (!target) continue;
+    if (c === target) return true;
+    if (c.startsWith(target) || target.startsWith(c)) {
+      if (Math.abs(c.length - target.length) <= 5) return true;
+    }
+  }
+  return false;
 }
 
 export async function GET(
@@ -22,6 +37,136 @@ export async function GET(
       ? rawId.map(decodeURIComponent).join("/")
       : decodeURIComponent(rawId || "");
     const lang = req.nextUrl.searchParams.get("lang") || "en";
+
+    // 0. Handle AniList Source Directly (map to MangaDex, AllManga, MangaPill, or WeebCentral)
+    if (id.startsWith("anilist-")) {
+      const anilistId = id.replace(/^anilist-/, "");
+      const q = `query($id: Int) {
+        Media(id: $id, type: MANGA) {
+          id
+          title { english romaji native }
+          description
+          coverImage { extraLarge large }
+          bannerImage
+          status
+          averageScore
+          genres
+        }
+      }`;
+      const alRes = await fetch("https://graphql.anilist.co", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q, variables: { id: parseInt(anilistId, 10) } }),
+        signal: AbortSignal.timeout(6000),
+      }).catch(() => null);
+
+      let alMedia: any = null;
+      if (alRes && alRes.ok) {
+        const json = await alRes.json();
+        alMedia = json.data?.Media;
+      }
+
+      const searchTitles = alMedia
+        ? [alMedia.title.english, alMedia.title.romaji, alMedia.title.native].filter(Boolean)
+        : [];
+
+      let resolvedMangaId: string | null = null;
+      for (const st of searchTitles) {
+        const [dexM, allM, pillM, weebM, asuraM] = await Promise.all([
+          searchMangaDex(st, 3).catch(() => []),
+          searchAllManga(st, 3).catch(() => []),
+          searchMangaPill(st, 3).catch(() => []),
+          searchWeebCentral(st, 3).catch(() => []),
+          searchAsura(st, 3).catch(() => []),
+        ]);
+
+        const dexFound = dexM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (dexFound) {
+          resolvedMangaId = dexFound.id;
+          break;
+        }
+        const asuraFound = asuraM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (asuraFound) {
+          resolvedMangaId = asuraFound.id;
+          break;
+        }
+        const allFound = allM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (allFound) {
+          resolvedMangaId = allFound.id;
+          break;
+        }
+        const pillFound = pillM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (pillFound) {
+          resolvedMangaId = pillFound.id;
+          break;
+        }
+        const weebFound = weebM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (weebFound) {
+          resolvedMangaId = weebFound.id;
+          break;
+        }
+      }
+
+      if (resolvedMangaId) {
+        return GET(
+          new NextRequest(new URL(`/api/manga/${resolvedMangaId}`, req.url)),
+          { params: Promise.resolve({ id: resolvedMangaId }) }
+        );
+      }
+    }
+
+    // 0.5. Handle Asura Source Directly
+    if (id.startsWith("asura-")) {
+      const asuraData = await fetchAsuraDetails(id);
+      if (!asuraData) {
+        return NextResponse.json(
+          { success: false, error: "Series not found on Asura Scans" },
+          { status: 404 }
+        );
+      }
+
+      const richMeta = await fetchRichMangaMetadata(asuraData.title).catch(() => ({ source: "NONE", data: null }));
+      const meta = (richMeta?.data || {}) as any;
+
+      const allChapters = asuraData.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: asuraData.id,
+        mangaTitle: asuraData.title,
+        coverUrl: asuraData.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Asura Scans HD Stream",
+        publishedAt: ch.publishedAt,
+        sourceId: "asura",
+        sourceType: "ASURA" as any,
+        pageCount: 0,
+      }));
+
+      const chapterGroups = unifyAndSortChapters(allChapters as any);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: asuraData.id,
+          title: asuraData.title,
+          altTitles: asuraData.altTitles,
+          description: asuraData.description || meta.description || meta.synopsis || "No synopsis available.",
+          coverUrl: asuraData.coverUrl,
+          bannerUrl: asuraData.bannerUrl || meta.bannerImage || asuraData.coverUrl,
+          status: asuraData.status,
+          score: meta.averageScore || meta.score || 94,
+          year: null,
+          author: "Manhwa Creator",
+          artist: "Studio",
+          genres: asuraData.genres,
+          totalChapters: chapterGroups.length,
+          chapterGroups,
+          sourceType: "ASURA",
+        },
+      });
+    }
 
     // 1. Handle MangaPill Source Directly
     if (id.startsWith("mangapill-")) {
@@ -283,48 +428,78 @@ export async function GET(
       new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 4) || [])])
     ).filter(Boolean);
 
-    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill search, WeebCentral search, AllManga search
-    const [richMeta, rawChapters, pillSearches, weebSearches, allSearches] = await Promise.all([
+    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill search, WeebCentral search, AllManga search, Asura search
+    const [richMeta, rawChapters, pillSearches, weebSearches, allSearches, asuraSearches] = await Promise.all([
       fetchRichMangaMetadata(canonicalTitle).catch(() => ({ source: "NONE", data: null })),
       fetchMangaDexChapterFeed(id, lang).catch(() => []),
       Promise.all(candidateTerms.map((t) => searchMangaPill(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchWeebCentral(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchAllManga(t, 2).catch(() => []))),
+      Promise.all(candidateTerms.map((t) => searchAsura(t, 2).catch(() => []))),
     ]);
 
     // Flatten search matches
     const allPillMatches = pillSearches.flat();
     const allWeebMatches = weebSearches.flat();
     const allAllMangaMatches = allSearches.flat();
+    const allAsuraMatches = asuraSearches.flat();
 
-    const bestPill =
-      allPillMatches.find((p) => cleanKey(p.title) === cleanKey(canonicalTitle)) ||
-      allPillMatches[0];
-
-    const bestWeeb =
-      allWeebMatches.find((w) => cleanKey(w.title) === cleanKey(canonicalTitle)) ||
-      allWeebMatches[0];
-
-    const bestAllManga =
-      allAllMangaMatches.find((a) => cleanKey(a.title) === cleanKey(canonicalTitle)) ||
-      allAllMangaMatches.find((a) => candidateTerms.some((t) => cleanKey(a.title) === cleanKey(t))) ||
-      allAllMangaMatches[0];
+    const bestPill = allPillMatches.find((p) => isStrictTitleMatch(p.title, candidateTerms));
+    const bestWeeb = allWeebMatches.find((w) => isStrictTitleMatch(w.title, candidateTerms));
+    const bestAllManga = allAllMangaMatches.find((a) => isStrictTitleMatch(a.title, candidateTerms));
+    const bestAsura = allAsuraMatches.find((a) => isStrictTitleMatch(a.title, candidateTerms));
 
     // Concurrently fetch chapter feeds from all alternate sources
-    const [pillDetails, weebDetails, allMangaDetails] = await Promise.all([
+    const [pillDetails, weebDetails, allMangaDetails, asuraDetails] = await Promise.all([
       bestPill ? fetchMangaPillDetails(bestPill.id).catch(() => null) : null,
       bestWeeb ? fetchWeebCentralDetails(bestWeeb.id).catch(() => null) : null,
       bestAllManga ? fetchAllMangaDetails(bestAllManga.id).catch(() => null) : null,
+      bestAsura ? fetchAsuraDetails(bestAsura.id).catch(() => null) : null,
     ]);
+
+    // Choose cleanest, highest-resolution cover art (prefer AniList official HD, then Asura, then AllManga, then MangaDex)
+    const metaData = richMeta?.data as any;
+    let finalCover = mangaDexData.coverUrl;
+    if (metaData?.coverImage?.extraLarge || metaData?.coverImage?.large) {
+      finalCover = metaData.coverImage.extraLarge || metaData.coverImage.large;
+    } else if (typeof metaData?.coverImage === "string") {
+      finalCover = metaData.coverImage;
+    } else if (bestAsura?.coverUrl && !bestAsura.coverUrl.includes("placeholder")) {
+      finalCover = bestAsura.coverUrl;
+    } else if (bestAllManga?.coverUrl && !bestAllManga.coverUrl.includes("placeholder")) {
+      finalCover = bestAllManga.coverUrl;
+    } else if (bestPill?.coverUrl && !bestPill.coverUrl.includes("placeholder")) {
+      finalCover = bestPill.coverUrl;
+    }
 
     // Base MangaDex chapters
     const normalizedChapters = rawChapters.map((ch) => ({
       ...ch,
       mangaTitle: canonicalTitle,
-      coverUrl: mangaDexData.coverUrl,
+      coverUrl: finalCover,
     }));
 
     let allChapters: any[] = [...normalizedChapters];
+
+    // Merge Asura Scans chapters
+    if (asuraDetails?.chapters?.length) {
+      const asuraNorm = asuraDetails.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: mangaDexData.id,
+        mangaTitle: canonicalTitle,
+        coverUrl: finalCover,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Asura Scans HD Stream",
+        publishedAt: ch.publishedAt,
+        sourceId: "asura",
+        sourceType: "ASURA" as any,
+        pageCount: 0,
+      }));
+      allChapters = [...allChapters, ...asuraNorm];
+    }
 
     // Merge AllManga chapters (often contains 20-100+ chapters for manhwa/webtoons where MangaDex only has teasers)
     if (allMangaDetails?.chapters?.length) {
@@ -332,7 +507,7 @@ export async function GET(
         externalChapId: ch.id,
         mangaExternalId: mangaDexData.id,
         mangaTitle: canonicalTitle,
-        coverUrl: mangaDexData.coverUrl,
+        coverUrl: finalCover,
         chapterNumber: ch.chapterNumber,
         volumeNumber: null,
         title: ch.title,
@@ -352,7 +527,7 @@ export async function GET(
         externalChapId: ch.id,
         mangaExternalId: mangaDexData.id,
         mangaTitle: canonicalTitle,
-        coverUrl: mangaDexData.coverUrl,
+        coverUrl: finalCover,
         chapterNumber: ch.chapterNumber,
         volumeNumber: null,
         title: ch.title,
@@ -372,7 +547,7 @@ export async function GET(
         externalChapId: ch.id,
         mangaExternalId: mangaDexData.id,
         mangaTitle: canonicalTitle,
-        coverUrl: mangaDexData.coverUrl,
+        coverUrl: finalCover,
         chapterNumber: ch.chapterNumber,
         volumeNumber: null,
         title: ch.title,
@@ -411,7 +586,7 @@ export async function GET(
         title: canonicalTitle,
         altTitles: mangaDexData.altTitles,
         description: enrichedSynopsis || "No synopsis available.",
-        coverUrl: mangaDexData.coverUrl,
+        coverUrl: finalCover,
         bannerUrl: enrichedBanner || null,
         status: mangaDexData.status,
         score: enrichedScore || null,
