@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchMangaDexDetails, fetchMangaDexChapterFeed, searchMangaDex } from "@/lib/adapters/mangadex";
 import { fetchMangaPillDetails, searchMangaPill } from "@/lib/adapters/mangapill";
 import { fetchWeebCentralDetails, searchWeebCentral } from "@/lib/adapters/weebcentral";
+import { fetchAllMangaDetails, searchAllManga } from "@/lib/adapters/allmanga";
 import { fetchRichMangaMetadata } from "@/lib/adapters/anilist";
 import { unifyAndSortChapters } from "@/lib/aggregator";
 
@@ -187,7 +188,86 @@ export async function GET(
       });
     }
 
-    // 3. Handle MangaDex Source (and cross-merge with MangaPill & WeebCentral)
+    // 3. Handle AllManga Source Directly
+    if (id.startsWith("allmanga-")) {
+      const allData = await fetchAllMangaDetails(id);
+      if (!allData) {
+        return NextResponse.json(
+          { success: false, error: "Series not found on AllManga" },
+          { status: 404 }
+        );
+      }
+
+      const [pillMatches, weebMatches, richMeta] = await Promise.all([
+        searchMangaPill(allData.title, 2).catch(() => []),
+        searchWeebCentral(allData.title, 2).catch(() => []),
+        fetchRichMangaMetadata(allData.title).catch(() => ({ source: "NONE", data: null })),
+      ]);
+
+      let allChapters = allData.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: allData.id,
+        mangaTitle: allData.title,
+        coverUrl: allData.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Mihon / AllManga Engine",
+        publishedAt: new Date().toISOString(),
+        sourceId: "allmanga",
+        sourceType: "ALLMANGA" as any,
+        pageCount: 0,
+      }));
+
+      if (pillMatches.length > 0) {
+        const pillData = await fetchMangaPillDetails(pillMatches[0].id).catch(() => null);
+        if (pillData?.chapters?.length) {
+          const pillNorm = pillData.chapters.map((ch) => ({
+            externalChapId: ch.id,
+            mangaExternalId: allData.id,
+            mangaTitle: allData.title,
+            coverUrl: allData.coverUrl,
+            chapterNumber: ch.chapterNumber,
+            volumeNumber: null,
+            title: ch.title,
+            language: "en",
+            scanlator: "Mihon / MangaPill Mirror",
+            publishedAt: new Date().toISOString(),
+            sourceId: "mangapill",
+            sourceType: "MANGAPILL" as any,
+            pageCount: 0,
+          }));
+          allChapters = [...allChapters, ...pillNorm];
+        }
+      }
+
+      const chapterGroups = unifyAndSortChapters(allChapters as any);
+      const meta = (richMeta?.data || {}) as any;
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: allData.id,
+          title: allData.title,
+          altTitles: [],
+          description: allData.description || meta.description || meta.synopsis || "No synopsis available.",
+          coverUrl: allData.coverUrl,
+          bannerUrl: meta.bannerImage || allData.coverUrl,
+          status: allData.status,
+          score: meta.averageScore || meta.score || 91,
+          year: null,
+          author: allData.authors.join(", ") || "Manga Creator",
+          artist: "Manga Creator",
+          genres: allData.genres.length ? allData.genres : meta.genres || [],
+          totalChapters: chapterGroups.length,
+          chapterGroups,
+          sourceType: "ALLMANGA",
+        },
+      });
+    }
+
+    // 4. Handle MangaDex Source (and cross-merge with AllManga, MangaPill & WeebCentral)
     const mangaDexData = await fetchMangaDexDetails(id);
     if (!mangaDexData) {
       return NextResponse.json(
@@ -200,20 +280,22 @@ export async function GET(
 
     // Search query terms: canonical English title first, then raw title, then altTitles
     const candidateTerms = Array.from(
-      new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 3) || [])])
+      new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 4) || [])])
     ).filter(Boolean);
 
-    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill search, WeebCentral search
-    const [richMeta, rawChapters, pillSearches, weebSearches] = await Promise.all([
+    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill search, WeebCentral search, AllManga search
+    const [richMeta, rawChapters, pillSearches, weebSearches, allSearches] = await Promise.all([
       fetchRichMangaMetadata(canonicalTitle).catch(() => ({ source: "NONE", data: null })),
       fetchMangaDexChapterFeed(id, lang).catch(() => []),
       Promise.all(candidateTerms.map((t) => searchMangaPill(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchWeebCentral(t, 2).catch(() => []))),
+      Promise.all(candidateTerms.map((t) => searchAllManga(t, 2).catch(() => []))),
     ]);
 
     // Flatten search matches
     const allPillMatches = pillSearches.flat();
     const allWeebMatches = weebSearches.flat();
+    const allAllMangaMatches = allSearches.flat();
 
     const bestPill =
       allPillMatches.find((p) => cleanKey(p.title) === cleanKey(canonicalTitle)) ||
@@ -223,10 +305,16 @@ export async function GET(
       allWeebMatches.find((w) => cleanKey(w.title) === cleanKey(canonicalTitle)) ||
       allWeebMatches[0];
 
-    // Concurrently fetch chapter feeds from both MangaPill and WeebCentral
-    const [pillDetails, weebDetails] = await Promise.all([
+    const bestAllManga =
+      allAllMangaMatches.find((a) => cleanKey(a.title) === cleanKey(canonicalTitle)) ||
+      allAllMangaMatches.find((a) => candidateTerms.some((t) => cleanKey(a.title) === cleanKey(t))) ||
+      allAllMangaMatches[0];
+
+    // Concurrently fetch chapter feeds from all alternate sources
+    const [pillDetails, weebDetails, allMangaDetails] = await Promise.all([
       bestPill ? fetchMangaPillDetails(bestPill.id).catch(() => null) : null,
       bestWeeb ? fetchWeebCentralDetails(bestWeeb.id).catch(() => null) : null,
+      bestAllManga ? fetchAllMangaDetails(bestAllManga.id).catch(() => null) : null,
     ]);
 
     // Base MangaDex chapters
@@ -237,6 +325,26 @@ export async function GET(
     }));
 
     let allChapters: any[] = [...normalizedChapters];
+
+    // Merge AllManga chapters (often contains 20-100+ chapters for manhwa/webtoons where MangaDex only has teasers)
+    if (allMangaDetails?.chapters?.length) {
+      const allNorm = allMangaDetails.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: mangaDexData.id,
+        mangaTitle: canonicalTitle,
+        coverUrl: mangaDexData.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Mihon / AllManga Stream",
+        publishedAt: new Date().toISOString(),
+        sourceId: "allmanga",
+        sourceType: "ALLMANGA" as any,
+        pageCount: 0,
+      }));
+      allChapters = [...allChapters, ...allNorm];
+    }
 
     // Merge MangaPill chapters
     if (pillDetails?.chapters?.length) {
@@ -314,6 +422,13 @@ export async function GET(
         totalChapters: chapterGroups.length,
         chapterGroups,
         sourceType: "UNIFIED",
+        alternateAllManga: allMangaDetails
+          ? {
+              id: allMangaDetails.id,
+              title: allMangaDetails.title,
+              totalChapters: allMangaDetails.chapters.length,
+            }
+          : null,
       },
     });
   } catch (error: any) {

@@ -27,6 +27,7 @@ const GENRES = [
 
 const PRESETS = [
   { id: "all", label: "All Manga", icon: Sparkles },
+  { id: "manhwa", label: "Manhwa & Webtoons", icon: Compass },
   { id: "trending", label: "Trending", icon: Flame },
   { id: "shonen", label: "Shonen & Action", icon: Zap },
   { id: "top", label: "Top Rated", icon: Trophy },
@@ -35,22 +36,30 @@ const PRESETS = [
 function ExploreContent() {
   const searchParams = useSearchParams();
   const qParam = searchParams.get("q") || "";
+  const sourceParam = searchParams.get("source") || "all";
 
   const [query, setQuery] = useState(qParam);
   const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<string>("all");
+  const [selectedSource, setSelectedSource] = useState<string>(sourceParam);
   const [results, setResults] = useState<MangaDexManga[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const executeSearch = (q: string, genre: string | null, preset = selectedPreset) => {
+  const executeSearch = (
+    q: string,
+    genre: string | null,
+    preset = selectedPreset,
+    source = selectedSource
+  ) => {
     setLoading(true);
-    let term = q.trim();
+    let term = q.replace(/[’‘`]/g, "'").trim();
+    if (!term && preset === "manhwa") term = "Solo Leveling Flower Path Tower of God";
     if (!term && preset === "shonen") term = "Shonen Action";
     if (!term && preset === "top") term = "Berserk One Piece";
     if (!term && preset === "trending") term = "Chainsaw Man Jujutsu Kaisen";
 
     const effectiveQuery = [term, genre || ""].filter(Boolean).join(" ");
-    searchManga(effectiveQuery, 36, "all")
+    searchManga(effectiveQuery, 36, source)
       .then((items) => {
         setResults(items);
       })
@@ -61,17 +70,17 @@ function ExploreContent() {
 
   useEffect(() => {
     setQuery(qParam);
-    executeSearch(qParam, selectedGenre, selectedPreset);
-  }, [qParam]);
+    executeSearch(qParam, selectedGenre, selectedPreset, sourceParam);
+  }, [qParam, sourceParam]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    executeSearch(query, selectedGenre, selectedPreset);
+    executeSearch(query, selectedGenre, selectedPreset, selectedSource);
   };
 
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
-    executeSearch(query, selectedGenre, preset);
+    executeSearch(query, selectedGenre, preset, selectedSource);
   };
 
   const handleGenreToggle = (genre: string) => {

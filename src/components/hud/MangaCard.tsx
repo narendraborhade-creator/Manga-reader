@@ -48,6 +48,14 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
       return null;
     }
+    // MangaDex and AniList CDNs have public CORS and don't require hotlink proxying
+    if (
+      coverUrl.includes("uploads.mangadex.org") ||
+      coverUrl.includes("anilist.co") ||
+      coverUrl.includes("s4.anilist.co")
+    ) {
+      return coverUrl;
+    }
     if (coverUrl.startsWith("http")) {
       return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
     }

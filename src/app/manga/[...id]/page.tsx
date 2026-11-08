@@ -130,6 +130,20 @@ export default function MangaDetailPage({
   );
 
   const banner = manga.bannerUrl || manga.coverUrl;
+  const bannerSrc =
+    banner.includes("uploads.mangadex.org") || banner.includes("anilist.co")
+      ? banner
+      : banner.startsWith("http")
+      ? `/api/proxy/image?url=${encodeURIComponent(banner)}`
+      : banner;
+
+  const coverSrc =
+    manga.coverUrl.includes("uploads.mangadex.org") ||
+    manga.coverUrl.includes("anilist.co")
+      ? manga.coverUrl
+      : manga.coverUrl.startsWith("http")
+      ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}`
+      : manga.coverUrl;
 
   return (
     <div className="space-y-8 pb-16">
@@ -139,7 +153,7 @@ export default function MangaDetailPage({
         <div className="relative w-full h-48 md:h-72 overflow-hidden bg-void">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={banner.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(banner)}` : banner}
+            src={bannerSrc}
             alt={manga.title}
             referrerPolicy="no-referrer"
             className="w-full h-full object-cover object-center brightness-40 blur-sm scale-105"
@@ -153,7 +167,7 @@ export default function MangaDetailPage({
           <div className="relative w-36 sm:w-48 md:w-56 flex-shrink-0 aspect-[3/4] bg-void rounded-sm border-2 border-gada/60 shadow-gada-gold overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={manga.coverUrl.startsWith("http") ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}` : manga.coverUrl}
+              src={coverSrc}
               alt={manga.title}
               referrerPolicy="no-referrer"
               className="w-full h-full object-cover"

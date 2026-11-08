@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(targetUrl, {
       headers,
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!upstream.ok || !upstream.body) {

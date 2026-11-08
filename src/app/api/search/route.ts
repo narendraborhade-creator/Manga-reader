@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchMangaDex } from "@/lib/adapters/mangadex";
 import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
+import { searchAllManga } from "@/lib/adapters/allmanga";
 
 export const dynamic = "force-dynamic";
 
 function normalizeKey(title: string): string {
   return title
     .toLowerCase()
+    .replace(/[’‘`]/g, "'")
     .replace(/\s*\(colored\)/gi, "")
     .replace(/\s*\(official\)/gi, "")
     .replace(/\s*\(digital colored comics\)/gi, " colored")
@@ -16,14 +18,17 @@ function normalizeKey(title: string): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const query = req.nextUrl.searchParams.get("q") || "";
+    const rawQuery = req.nextUrl.searchParams.get("q") || "";
+    const cleanQuery = rawQuery.replace(/[’‘`]/g, "'").trim();
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "36", 10);
+    const sourceFilter = req.nextUrl.searchParams.get("source") || "all";
 
     // Parallel multi-engine search across all top sources
-    const [pillResults, weebResults, dexResults] = await Promise.all([
-      searchMangaPill(query, 24).catch(() => []),
-      searchWeebCentral(query, 24).catch(() => []),
-      searchMangaDex(query, 24).catch(() => []),
+    const [pillResults, weebResults, dexResults, allResults] = await Promise.all([
+      searchMangaPill(cleanQuery, 24).catch(() => []),
+      searchWeebCentral(cleanQuery, 24).catch(() => []),
+      searchMangaDex(cleanQuery, 24).catch(() => []),
+      searchAllManga(cleanQuery, 24).catch(() => []),
     ]);
 
     // Unified deduplication map keyed by normalized title
@@ -131,11 +136,60 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 4. Merge AllManga items
+    for (const allItem of allResults) {
+      const key = normalizeKey(allItem.title);
+      if (!key) continue;
+
+      const existing = unifiedMap.get(key);
+      if (existing) {
+        if (allItem.totalChapters && (!existing.totalChapters || allItem.totalChapters > existing.totalChapters)) {
+          existing.totalChapters = allItem.totalChapters;
+        }
+        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
+          existing.coverUrl = allItem.coverUrl;
+        }
+        if (allItem.genres?.length) {
+          existing.tags = Array.from(new Set([...existing.tags, ...allItem.genres]));
+        }
+        if (allItem.englishName && !existing.altTitles?.includes(allItem.englishName)) {
+          existing.altTitles = [...(existing.altTitles || []), allItem.englishName];
+        }
+      } else {
+        unifiedMap.set(key, {
+          id: allItem.id,
+          title: allItem.title,
+          altTitles: allItem.englishName ? [allItem.englishName] : [],
+          description: "",
+          coverUrl: allItem.coverUrl,
+          bannerUrl: allItem.coverUrl,
+          status: allItem.status || "ONGOING",
+          score: 89,
+          tags: allItem.genres || [],
+          totalChapters: allItem.totalChapters || 0,
+        });
+      }
+    }
+
     let combined = Array.from(new Set(unifiedMap.values()));
 
+    // Filter by source if requested
+    if (sourceFilter && sourceFilter !== "all") {
+      const sf = sourceFilter.toLowerCase();
+      if (sf === "mangadex") {
+        combined = combined.filter((m) => !m.id.startsWith("mangapill-") && !m.id.startsWith("weebcentral-") && !m.id.startsWith("allmanga-"));
+      } else if (sf === "mangapill") {
+        combined = combined.filter((m) => m.id.startsWith("mangapill-"));
+      } else if (sf === "weebcentral") {
+        combined = combined.filter((m) => m.id.startsWith("weebcentral-"));
+      } else if (sf === "allmanga") {
+        combined = combined.filter((m) => m.id.startsWith("allmanga-"));
+      }
+    }
+
     // Precision sorting:
-    if (query.trim()) {
-      const q = query.trim().toLowerCase();
+    if (cleanQuery) {
+      const q = cleanQuery.toLowerCase();
       const qClean = q.replace(/[^a-z0-9]/g, "");
 
       combined.sort((a, b) => {
