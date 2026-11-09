@@ -93,6 +93,7 @@ function fetchWithCurl(
       else if (url.includes("mangapill") || url.includes("readdetectiveconan")) effectiveReferer = "https://mangapill.com/";
       else if (url.includes("asura")) effectiveReferer = "https://asurascans.com/";
       else if (url.includes("allanime") || url.includes("allmanga")) effectiveReferer = "https://allmanga.to/";
+      else if (url.includes("mangakatana")) effectiveReferer = "https://mangakatana.com/";
     }
 
     if (effectiveReferer) {
@@ -161,6 +162,8 @@ export async function GET(req: NextRequest) {
     referer = "https://allmanga.to/";
   } else if (targetUrl.includes("asura")) {
     referer = "https://asurascans.com/";
+  } else if (targetUrl.includes("mangakatana")) {
+    referer = "https://mangakatana.com/";
   }
 
   // 3. High-Speed Native Fetch

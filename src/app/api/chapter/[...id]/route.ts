@@ -4,6 +4,7 @@ import { fetchMangaPillChapterPages, searchMangaPill, fetchMangaPillDetails } fr
 import { fetchWeebCentralChapterPages, searchWeebCentral, fetchWeebCentralDetails } from "@/lib/adapters/weebcentral";
 import { fetchAllMangaChapterPages, fetchAllMangaDetails } from "@/lib/adapters/allmanga";
 import { fetchAsuraChapterPages, searchAsura, fetchAsuraDetails } from "@/lib/adapters/asura";
+import { fetchMangaKatanaPages, searchMangaKatana, fetchMangaKatanaDetails } from "@/lib/adapters/mangakatana";
 import { isStrictTitleMatch } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,35 @@ export async function GET(
             proxiedPages: asuraPages.proxiedPages,
             directPages: asuraPages.pages,
             sourceName: "Asura Scans HD Stream",
+          },
+        });
+        response.headers.set("Cache-Control", "public, max-age=3600");
+        return response;
+      }
+    }
+
+    // 0.5 Handle MangaKatana Source
+    if (id.startsWith("mangakatana-")) {
+      const katanaPages = await fetchMangaKatanaPages(id);
+      if (katanaPages && katanaPages.pages.length > 0) {
+        const rawSlug = id.replace(/^mangakatana-/, "").split("/")[0];
+        const match = id.match(/\/c([0-9.]+)/i);
+        const chNum = match ? parseFloat(match[1]) : 1;
+        const response = NextResponse.json({
+          success: true,
+          data: {
+            chapterId: id,
+            mangaId: `mangakatana-${rawSlug}`,
+            mangaTitle: rawSlug.replace(/\.[0-9]+$/, "").replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+            chapterNumber: chNum,
+            chapterTitle: `Chapter ${chNum}`,
+            baseUrl: "https://mangakatana.com",
+            hash: "",
+            quality,
+            files: katanaPages.pages,
+            proxiedPages: katanaPages.proxiedPages,
+            directPages: katanaPages.directPages,
+            sourceName: "MangaKatana Stream",
           },
         });
         response.headers.set("Cache-Control", "public, max-age=3600");

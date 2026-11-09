@@ -85,6 +85,7 @@ export const PagedViewer: React.FC<PagedViewerProps> = ({
       directUrl &&
         (directUrl.includes("mangadex.network") ||
           directUrl.includes("uploads.mangadex.org") ||
+          directUrl.includes("mangakatana.com") ||
           directUrl.includes("compsci88.com") ||
           directUrl.includes("anilist.co"))
     );

@@ -13,7 +13,7 @@ export interface NormalizedChapter {
   scanlator: string;
   publishedAt: string;
   sourceId: string;
-  sourceType: "MANGADEX" | "KEIYOUSHI_SUWAYOMI" | "MANGAPILL" | "WEEBCENTRAL" | "ALLMANGA" | "UNIFIED";
+  sourceType: "MANGADEX" | "KEIYOUSHI_SUWAYOMI" | "MANGAPILL" | "WEEBCENTRAL" | "ALLMANGA" | "MANGAKATANA" | "ASURA" | "UNIFIED";
   pageCount?: number;
   externalUrl?: string | null;
 }

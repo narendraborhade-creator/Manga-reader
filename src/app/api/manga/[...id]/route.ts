@@ -4,6 +4,7 @@ import { fetchMangaPillDetails, searchMangaPill } from "@/lib/adapters/mangapill
 import { fetchWeebCentralDetails, searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { fetchAllMangaDetails, searchAllManga } from "@/lib/adapters/allmanga";
 import { fetchAsuraDetails, searchAsura } from "@/lib/adapters/asura";
+import { fetchMangaKatanaDetails, searchMangaKatana } from "@/lib/adapters/mangakatana";
 import { fetchRichMangaMetadata } from "@/lib/adapters/anilist";
 import { unifyAndSortChapters, cleanKey, isStrictTitleMatch } from "@/lib/aggregator";
 
@@ -54,7 +55,8 @@ export async function GET(
 
       let resolvedMangaId: string | null = null;
       for (const st of searchTitles) {
-        const [dexM, allM, pillM, weebM, asuraM] = await Promise.all([
+        const [katanaM, dexM, allM, pillM, weebM, asuraM] = await Promise.all([
+          searchMangaKatana(st, 3).catch(() => []),
           searchMangaDex(st, 3).catch(() => []),
           searchAllManga(st, 3).catch(() => []),
           searchMangaPill(st, 3).catch(() => []),
@@ -62,6 +64,11 @@ export async function GET(
           searchAsura(st, 3).catch(() => []),
         ]);
 
+        const katanaFound = katanaM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (katanaFound && (katanaFound.totalChapters || 0) > 20) {
+          resolvedMangaId = katanaFound.id;
+          break;
+        }
         const dexFound = dexM.find((m) => isStrictTitleMatch(m.title, searchTitles));
         if (dexFound) {
           resolvedMangaId = dexFound.id;
@@ -85,6 +92,10 @@ export async function GET(
         const weebFound = weebM.find((m) => isStrictTitleMatch(m.title, searchTitles));
         if (weebFound) {
           resolvedMangaId = weebFound.id;
+          break;
+        }
+        if (katanaFound) {
+          resolvedMangaId = katanaFound.id;
           break;
         }
       }
@@ -241,7 +252,60 @@ export async function GET(
       });
     }
 
-    // 2. Handle WeebCentral Source Directly
+    // 2. Handle MangaKatana Source Directly
+    if (id.startsWith("mangakatana-")) {
+      const katanaData = await fetchMangaKatanaDetails(id);
+      if (!katanaData) {
+        return NextResponse.json(
+          { success: false, error: "Series not found on MangaKatana" },
+          { status: 404 }
+        );
+      }
+
+      const richMeta = await fetchRichMangaMetadata(katanaData.title).catch(() => ({ source: "NONE", data: null }));
+
+      const allChapters = katanaData.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: katanaData.id,
+        mangaTitle: katanaData.title,
+        coverUrl: katanaData.coverUrl,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Mihon / MangaKatana Stream",
+        publishedAt: new Date().toISOString(),
+        sourceId: "mangakatana",
+        sourceType: "MANGAKATANA" as any,
+        pageCount: 0,
+      }));
+
+      const chapterGroups = unifyAndSortChapters(allChapters as any);
+      const meta = (richMeta?.data || {}) as any;
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: katanaData.id,
+          title: katanaData.title,
+          altTitles: [],
+          description: katanaData.description || meta.description || meta.synopsis || "No synopsis available.",
+          coverUrl: meta?.coverImage?.extraLarge || meta?.coverImage?.large || katanaData.coverUrl,
+          bannerUrl: meta.bannerImage || katanaData.coverUrl,
+          status: katanaData.status,
+          score: meta.averageScore || meta.score || 94,
+          year: null,
+          author: "Manga Author",
+          artist: "Manga Artist",
+          genres: katanaData.genres.length ? katanaData.genres : meta.genres || [],
+          totalChapters: chapterGroups.length,
+          chapterGroups,
+          sourceType: "MANGAKATANA",
+        },
+      });
+    }
+
+    // 3. Handle WeebCentral Source Directly
     if (id.startsWith("weebcentral-")) {
       const weebData = await fetchWeebCentralDetails(id);
       if (!weebData) {
@@ -495,14 +559,15 @@ export async function GET(
       new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 4) || [])])
     ).filter(Boolean);
 
-    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill search, WeebCentral search, AllManga search, Asura search
-    const [richMeta, rawChapters, pillSearches, weebSearches, allSearches, asuraSearches] = await Promise.all([
+    // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill, WeebCentral, AllManga, Asura, MangaKatana
+    const [richMeta, rawChapters, pillSearches, weebSearches, allSearches, asuraSearches, katanaSearches] = await Promise.all([
       fetchRichMangaMetadata(canonicalTitle).catch(() => ({ source: "NONE", data: null })),
       fetchMangaDexChapterFeed(id, lang).catch(() => []),
       Promise.all(candidateTerms.map((t) => searchMangaPill(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchWeebCentral(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchAllManga(t, 2).catch(() => []))),
       Promise.all(candidateTerms.map((t) => searchAsura(t, 2).catch(() => []))),
+      Promise.all(candidateTerms.map((t) => searchMangaKatana(t, 2).catch(() => []))),
     ]);
 
     // Flatten search matches
@@ -510,21 +575,24 @@ export async function GET(
     const allWeebMatches = weebSearches.flat();
     const allAllMangaMatches = allSearches.flat();
     const allAsuraMatches = asuraSearches.flat();
+    const allKatanaMatches = katanaSearches.flat();
 
     const bestPill = allPillMatches.find((p) => isStrictTitleMatch(p.title, candidateTerms));
     const bestWeeb = allWeebMatches.find((w) => isStrictTitleMatch(w.title, candidateTerms));
     const bestAllManga = allAllMangaMatches.find((a) => isStrictTitleMatch(a.title, candidateTerms));
     const bestAsura = allAsuraMatches.find((a) => isStrictTitleMatch(a.title, candidateTerms));
+    const bestKatana = allKatanaMatches.find((k) => isStrictTitleMatch(k.title, candidateTerms));
 
     // Concurrently fetch chapter feeds from all alternate sources
-    const [pillDetails, weebDetails, allMangaDetails, asuraDetails] = await Promise.all([
+    const [pillDetails, weebDetails, allMangaDetails, asuraDetails, katanaDetails] = await Promise.all([
       bestPill ? fetchMangaPillDetails(bestPill.id).catch(() => null) : null,
       bestWeeb ? fetchWeebCentralDetails(bestWeeb.id).catch(() => null) : null,
       bestAllManga ? fetchAllMangaDetails(bestAllManga.id).catch(() => null) : null,
       bestAsura ? fetchAsuraDetails(bestAsura.id).catch(() => null) : null,
+      bestKatana ? fetchMangaKatanaDetails(bestKatana.id).catch(() => null) : null,
     ]);
 
-    // Choose cleanest, highest-resolution cover art (prefer AniList official HD, then Asura, then AllManga, then MangaDex)
+    // Choose cleanest, highest-resolution cover art (prefer AniList official HD, then Asura, then MangaKatana, then AllManga, then MangaDex)
     const metaData = richMeta?.data as any;
     let finalCover = mangaDexData.coverUrl;
     if (metaData?.coverImage?.extraLarge || metaData?.coverImage?.large) {
@@ -533,6 +601,8 @@ export async function GET(
       finalCover = metaData.coverImage;
     } else if (bestAsura?.coverUrl && !bestAsura.coverUrl.includes("placeholder")) {
       finalCover = bestAsura.coverUrl;
+    } else if (bestKatana?.coverUrl && !bestKatana.coverUrl.includes("placeholder")) {
+      finalCover = bestKatana.coverUrl;
     } else if (bestWeeb?.coverUrl && !bestWeeb.coverUrl.includes("placeholder")) {
       finalCover = bestWeeb.coverUrl;
     } else if (bestPill?.coverUrl && !bestPill.coverUrl.includes("placeholder")) {
@@ -626,6 +696,26 @@ export async function GET(
         pageCount: 0,
       }));
       allChapters = [...allChapters, ...weebNorm];
+    }
+
+    // Merge MangaKatana chapters (massive full-coverage archives: 100-200+ chapters)
+    if (katanaDetails?.chapters?.length) {
+      const katanaNorm = katanaDetails.chapters.map((ch) => ({
+        externalChapId: ch.id,
+        mangaExternalId: mangaDexData.id,
+        mangaTitle: canonicalTitle,
+        coverUrl: finalCover,
+        chapterNumber: ch.chapterNumber,
+        volumeNumber: null,
+        title: ch.title,
+        language: "en",
+        scanlator: "Mihon / MangaKatana Stream",
+        publishedAt: new Date().toISOString(),
+        sourceId: "mangakatana",
+        sourceType: "MANGAKATANA" as any,
+        pageCount: 0,
+      }));
+      allChapters = [...allChapters, ...katanaNorm];
     }
 
     const chapterGroups = unifyAndSortChapters(allChapters);

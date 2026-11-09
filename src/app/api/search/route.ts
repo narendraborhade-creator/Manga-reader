@@ -4,6 +4,7 @@ import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { searchAllManga } from "@/lib/adapters/allmanga";
 import { searchAsura } from "@/lib/adapters/asura";
+import { searchMangaKatana } from "@/lib/adapters/mangakatana";
 import { fetchAniListPopular } from "@/lib/adapters/anilist";
 
 export const dynamic = "force-dynamic";
@@ -89,21 +90,41 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Parallel multi-engine search across high-reliability primary sources
-    const [weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
+    const [katanaResults, weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
+      searchMangaKatana(cleanQuery, 24).catch(() => []),
       searchWeebCentral(cleanQuery, 24).catch(() => []),
       searchMangaDex(cleanQuery, 24).catch(() => []),
       searchMangaPill(cleanQuery, 24).catch(() => []),
       searchAsura(cleanQuery, 24).catch(() => []),
     ]);
 
-    // Only query AllManga if explicitly filtered or if top 4 sources returned 0 results
+    // Only query AllManga if explicitly filtered or if top 5 sources returned 0 results
     let allResults: any[] = [];
-    if (sourceFilter === "allmanga" || (weebResults.length === 0 && dexResults.length === 0 && pillResults.length === 0)) {
+    if (sourceFilter === "allmanga" || (katanaResults.length === 0 && weebResults.length === 0 && dexResults.length === 0 && pillResults.length === 0)) {
       allResults = await searchAllManga(cleanQuery, 16).catch(() => []);
     }
 
     // Unified deduplication map keyed by normalized title
     const unifiedMap = new Map<string, any>();
+
+    // Priority 0: MangaKatana (huge 100-200+ chapter archives for manhwa and webtoons)
+    for (const katana of katanaResults) {
+      const key = normalizeKey(katana.title);
+      if (!key) continue;
+
+      unifiedMap.set(key, {
+        id: katana.id,
+        title: katana.title,
+        altTitles: [],
+        description: katana.description || "",
+        coverUrl: katana.coverUrl,
+        bannerUrl: katana.coverUrl,
+        status: katana.status || "ONGOING",
+        score: 94,
+        tags: katana.genres || [],
+        totalChapters: katana.totalChapters || 0,
+      });
+    }
 
     // Priority 1: WeebCentral (huge canon archives, 1000+ chapters, verified unblocked WebP CDN)
     for (const weeb of weebResults) {
