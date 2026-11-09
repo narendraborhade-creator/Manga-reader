@@ -6,6 +6,7 @@ import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { HeroCarousel } from "@/components/hud/HeroCarousel";
 import { MultiSourceRecommendations } from "@/components/hud/MultiSourceRecommendations";
+import { LatestChapterCard } from "@/components/hud/LatestChapterCard";
 import { Clock, Compass, BookOpen, ChevronRight, Layers } from "lucide-react";
 
 export const revalidate = 60; // Fresh chapters every minute
@@ -197,55 +198,15 @@ export default async function HomePage() {
         {/* Latest Chapters Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {latestChapters.map((chapter) => (
-            <div
+            <LatestChapterCard
               key={chapter.externalChapId}
-              className="group flex flex-col h-full bg-[#121622] border border-[#23293e] hover:border-indigo-500/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10"
-            >
-              {/* Cover Image */}
-              <Link
-                href={`/manga/${chapter.mangaExternalId}`}
-                className="relative aspect-[3/4] w-full overflow-hidden bg-[#0d1017] block"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/proxy/image?url=${encodeURIComponent(chapter.coverUrl)}`}
-                  alt={chapter.mangaTitle}
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute top-2.5 left-2.5 z-10">
-                  <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-indigo-600 text-white rounded-md shadow-sm">
-                    CH. {chapter.chapterNumber}
-                  </span>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-t from-[#121622] via-transparent to-transparent opacity-80 pointer-events-none" />
-              </Link>
-
-              {/* Title & Actions */}
-              <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                <Link href={`/manga/${chapter.mangaExternalId}`}>
-                  <h3 className="font-sans font-semibold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
-                    {chapter.mangaTitle}
-                  </h3>
-                  <p className="font-sans text-[11px] text-slate-400 mt-1">
-                    English Chapter {chapter.chapterNumber}
-                  </p>
-                </Link>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#20273a] text-xs font-sans">
-                  <Link
-                    href={`/read/${chapter.externalChapId}`}
-                    className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
-                  >
-                    Read Chapter →
-                  </Link>
-                  <span className="text-emerald-400 text-[10px] uppercase font-mono font-bold">
-                    NEW
-                  </span>
-                </div>
-              </div>
-            </div>
+              externalChapId={chapter.externalChapId}
+              mangaExternalId={chapter.mangaExternalId}
+              mangaTitle={chapter.mangaTitle}
+              coverUrl={chapter.coverUrl}
+              chapterNumber={chapter.chapterNumber}
+              publishedAt={chapter.publishedAt}
+            />
           ))}
         </div>
       </section>

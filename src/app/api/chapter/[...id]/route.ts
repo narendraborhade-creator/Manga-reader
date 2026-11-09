@@ -119,7 +119,7 @@ export async function GET(
         if (matchedAsura) {
           const asuraData = await fetchAsuraDetails(matchedAsura.id).catch(() => null);
           const matchedCh = asuraData?.chapters.find(
-            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05 || (targetNum === 0 && (c.chapterNumber === 1 || c.title.toLowerCase().includes('prologue') || c.title.toLowerCase().includes('chapter 0')))
           );
           if (matchedCh) {
             const asuraPages = await fetchAsuraChapterPages(matchedCh.seriesSlug, matchedCh.chapterSlug);
@@ -151,7 +151,7 @@ export async function GET(
         if (matchedWeeb) {
           const weebData = await fetchWeebCentralDetails(matchedWeeb.id).catch(() => null);
           const matchedCh = weebData?.chapters.find(
-            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05 || (targetNum === 0 && (c.chapterNumber === 1 || c.title.toLowerCase().includes('prologue') || c.title.toLowerCase().includes('chapter 0')))
           );
           if (matchedCh) {
             const weebPages = await fetchWeebCentralChapterPages(matchedCh.id);
@@ -183,7 +183,7 @@ export async function GET(
         if (matchedPill) {
           const pillData = await fetchMangaPillDetails(matchedPill.id).catch(() => null);
           const matchedCh = pillData?.chapters.find(
-            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05 || (targetNum === 0 && (c.chapterNumber === 1 || c.title.toLowerCase().includes('prologue') || c.title.toLowerCase().includes('chapter 0')))
           );
           if (matchedCh) {
             const fallbackPages = await fetchMangaPillChapterPages(matchedCh.id);
@@ -215,7 +215,7 @@ export async function GET(
         if (matchedDex) {
           const dexChapters = await fetchMangaDexChapterFeed(matchedDex.id, "en").catch(() => []);
           const matchedCh = dexChapters.find(
-            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05 || (targetNum === 0 && (c.chapterNumber === 1 || c.title.toLowerCase().includes('prologue') || c.title.toLowerCase().includes('chapter 0')))
           );
           if (matchedCh) {
             const dexPages = await resolveMangaDexChapterPages(matchedCh.externalChapId, quality);

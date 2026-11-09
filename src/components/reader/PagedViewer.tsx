@@ -78,6 +78,25 @@ export const PagedViewer: React.FC<PagedViewerProps> = ({
   const currentIdx = Math.max(0, currentPage - 1);
   const secondIdx = isDouble && currentIdx + 1 < total ? currentIdx + 1 : null;
 
+  const getPageSources = (idx: number) => {
+    const directUrl = directPages[idx];
+    const pageUrl = proxiedPages[idx];
+    const isDirectAllowed = Boolean(
+      directUrl &&
+        (directUrl.includes("mangadex.network") ||
+          directUrl.includes("uploads.mangadex.org") ||
+          directUrl.includes("compsci88.com") ||
+          directUrl.includes("anilist.co"))
+    );
+    return {
+      primary: isDirectAllowed ? directUrl : (pageUrl || directUrl),
+      fallback: isDirectAllowed ? pageUrl : directUrl,
+    };
+  };
+
+  const page1 = getPageSources(currentIdx);
+  const page2 = secondIdx !== null ? getPageSources(secondIdx) : null;
+
   return (
     <div className="relative w-full min-h-[85vh] flex items-center justify-center select-none py-14 overflow-hidden">
       {/* Clickable Navigation Tap Zones */}
@@ -110,19 +129,19 @@ export const PagedViewer: React.FC<PagedViewerProps> = ({
         {/* Page 1 */}
         <div className="w-full flex-1 flex justify-center">
           <ImageWithFallback
-            src={proxiedPages[currentIdx]}
-            fallbackSrc={directPages[currentIdx]}
+            src={page1.primary}
+            fallbackSrc={page1.fallback}
             alt={`Page ${currentPage}`}
             priority={true}
           />
         </div>
 
         {/* Page 2 (Double Spread Mode) */}
-        {isDouble && secondIdx !== null && (
+        {isDouble && page2 !== null && (
           <div className="w-full flex-1 flex justify-center">
             <ImageWithFallback
-              src={proxiedPages[secondIdx]}
-              fallbackSrc={directPages[secondIdx]}
+              src={page2.primary}
+              fallbackSrc={page2.fallback}
               alt={`Page ${currentPage + 1}`}
               priority={true}
             />

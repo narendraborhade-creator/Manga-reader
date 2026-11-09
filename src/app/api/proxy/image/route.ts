@@ -3,36 +3,13 @@ import { spawn } from "child_process";
 
 export const dynamic = "force-dynamic";
 
-function generateFallbackSvg(title = "Manga Stream"): string {
-  const cleanTitle = title.replace(/[<>&"]/g, "").slice(0, 32);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600" fill="#0B0E14">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#161c2e" />
-      <stop offset="100%" stop-color="#0b0e14" />
-    </linearGradient>
-    <linearGradient id="indigo" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#6366F1" />
-      <stop offset="100%" stop-color="#4F46E5" />
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#grad)"/>
-  <rect x="8" y="8" width="384" height="584" rx="16" fill="none" stroke="#23293e" stroke-width="1.5" stroke-dasharray="6 3"/>
-  <circle cx="200" cy="250" r="50" fill="#121622" stroke="#6366F1" stroke-width="2"/>
-  <path d="M185 235 h30 v30 h-30 z M180 235 l20 -15 l20 15" fill="none" stroke="#6366F1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="200" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC" text-anchor="middle">${cleanTitle}</text>
-  <text x="200" y="370" font-family="monospace" font-size="11" font-weight="600" fill="#818CF8" text-anchor="middle" letter-spacing="2">MANGAYOMI ARCHIVE</text>
-  <text x="200" y="395" font-family="system-ui, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">STREAM VERIFIED</text>
-</svg>`;
-}
-
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; time: number }>();
 const MAX_CACHE_SIZE = 500;
 
 function getCached(key: string) {
   const item = imageCache.get(key);
   if (!item) return null;
-  // Cache for 12 hours
+  // Cache in memory for 12 hours
   if (Date.now() - item.time > 12 * 3600 * 1000) {
     imageCache.delete(key);
     return null;
@@ -51,7 +28,7 @@ function setCached(key: string, val: { buffer: Buffer; contentType: string }) {
 function isValidImageBuffer(buffer: Buffer): { isValid: boolean; contentType: string } {
   if (!buffer || buffer.length < 8) return { isValid: false, contentType: "" };
 
-  const strStart = buffer.slice(0, 50).toString("utf-8").trimStart().toLowerCase();
+  const strStart = buffer.slice(0, 80).toString("utf-8").trimStart().toLowerCase();
   if (
     strStart.startsWith("<") ||
     strStart.startsWith("<!--") ||
@@ -59,7 +36,8 @@ function isValidImageBuffer(buffer: Buffer): { isValid: boolean; contentType: st
     strStart.includes("<html") ||
     strStart.includes("<script") ||
     strStart.includes("cf-challenge") ||
-    strStart.includes("ddos")
+    strStart.includes("ddos") ||
+    strStart.includes("cloudflare")
   ) {
     return { isValid: false, contentType: "" };
   }
@@ -81,6 +59,12 @@ function isValidImageBuffer(buffer: Buffer): { isValid: boolean; contentType: st
     return { isValid: true, contentType: "image/gif" };
   }
 
+  // AVIF: ftypavif
+  const magicStr = buffer.slice(4, 12).toString("utf-8");
+  if (magicStr.includes("ftypavif") || magicStr.includes("ftypavis")) {
+    return { isValid: true, contentType: "image/avif" };
+  }
+
   if (buffer.length > 512 && !strStart.includes("html") && !strStart.includes("script")) {
     return { isValid: true, contentType: "image/jpeg" };
   }
@@ -93,13 +77,20 @@ function fetchWithCurl(
   referer?: string
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
   return new Promise((resolve) => {
-    const args = ["-s", "-L", "--max-time", "10", "-A", "MangayomiWeb/1.0 (https://github.com/kodjodevf/mangayomi)"];
-    
+    const args = [
+      "-s",
+      "-L",
+      "--max-time",
+      "10",
+      "-A",
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    ];
+
     let effectiveReferer = referer;
     if (!effectiveReferer) {
       if (url.includes("mangadex")) effectiveReferer = "https://mangadex.org/";
-      else if (url.includes("weebcentral")) effectiveReferer = "https://weebcentral.com/";
-      else if (url.includes("mangapill")) effectiveReferer = "https://mangapill.com/";
+      else if (url.includes("weebcentral") || url.includes("compsci88")) effectiveReferer = "https://weebcentral.com/";
+      else if (url.includes("mangapill") || url.includes("readdetectiveconan")) effectiveReferer = "https://mangapill.com/";
       else if (url.includes("asura")) effectiveReferer = "https://asurascans.com/";
       else if (url.includes("allanime") || url.includes("allmanga")) effectiveReferer = "https://allmanga.to/";
     }
@@ -134,13 +125,13 @@ export async function GET(req: NextRequest) {
   const refererParam = req.nextUrl.searchParams.get("referer");
 
   if (!targetUrl || !targetUrl.startsWith("http")) {
-    return new NextResponse(generateFallbackSvg(), {
-      status: 200,
-      headers: { "Content-Type": "image/svg+xml" },
+    return new NextResponse(null, {
+      status: 400,
+      statusText: "Bad Request - Missing or invalid image URL",
     });
   }
 
-  // Fast Memory Cache Check
+  // 1. Fast In-Memory Cache Check
   const cached = getCached(targetUrl);
   if (cached) {
     return new NextResponse(new Uint8Array(cached.buffer), {
@@ -153,28 +144,25 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Determine effective Referer and User-Agent
+  // 2. Determine effective Referer and User-Agent per upstream domain
   let referer = refererParam || "";
-  let userAgent = "MangayomiWeb/1.0 (https://github.com/kodjodevf/mangayomi)";
+  let userAgent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
   if (targetUrl.includes("mangadex")) {
     referer = "https://mangadex.org/";
     userAgent = "MangayomiWeb/1.0";
-  } else if (targetUrl.includes("weebcentral")) {
+  } else if (targetUrl.includes("weebcentral") || targetUrl.includes("compsci88")) {
     referer = "https://weebcentral.com/";
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-  } else if (targetUrl.includes("mangapill")) {
+  } else if (targetUrl.includes("mangapill") || targetUrl.includes("readdetectiveconan")) {
     referer = "https://mangapill.com/";
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
   } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
     referer = "https://allmanga.to/";
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
   } else if (targetUrl.includes("asura")) {
     referer = "https://asurascans.com/";
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
   }
 
-  // 1. Try standard high-speed Node fetch
+  // 3. High-Speed Native Fetch
   try {
     const headers: Record<string, string> = {
       "User-Agent": userAgent,
@@ -186,7 +174,7 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(targetUrl, {
       headers,
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(12000),
     });
 
     if (upstream.ok && upstream.body) {
@@ -210,7 +198,7 @@ export async function GET(req: NextRequest) {
     }
   } catch {}
 
-  // 2. Upstream fetch failed or bot-blocked -> Try curl
+  // 4. Fallback to curl subprocess (handles TLS fingerprinted hosts)
   const curlResult = await fetchWithCurl(targetUrl, referer);
   if (curlResult && curlResult.buffer.length > 0) {
     setCached(targetUrl, curlResult);
@@ -224,12 +212,12 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // 3. Fallback to clean Mangayomi SVG card
-  return new NextResponse(generateFallbackSvg(), {
-    status: 200,
+  // 5. Explicit error status so client <img onError> triggers immediate fallback
+  return new NextResponse(null, {
+    status: 502,
+    statusText: "Bad Gateway - Image stream currently unavailable",
     headers: {
-      "Content-Type": "image/svg+xml",
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
       "Access-Control-Allow-Origin": "*",
     },
   });

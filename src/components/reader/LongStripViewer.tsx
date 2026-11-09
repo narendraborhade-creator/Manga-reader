@@ -75,9 +75,20 @@ export const LongStripViewer: React.FC<LongStripViewerProps> = ({
         const isFirstThree = idx < 3;
         const directUrl = directPages[idx];
 
+        const isDirectDomainAllowed = Boolean(
+          directUrl &&
+            (directUrl.includes("mangadex.network") ||
+              directUrl.includes("uploads.mangadex.org") ||
+              directUrl.includes("compsci88.com") ||
+              directUrl.includes("anilist.co"))
+        );
+
+        const primarySrc = isDirectDomainAllowed ? directUrl : (pageUrl || directUrl);
+        const fallbackSrc = isDirectDomainAllowed ? pageUrl : directUrl;
+
         return (
           <div
-            key={pageUrl || idx}
+            key={pageUrl || directUrl || idx}
             ref={(el) => {
               pageRefs.current[idx] = el;
             }}
@@ -85,8 +96,8 @@ export const LongStripViewer: React.FC<LongStripViewerProps> = ({
             className="w-full max-w-4xl relative flex flex-col items-center"
           >
             <ImageWithFallback
-              src={pageUrl}
-              fallbackSrc={directUrl}
+              src={primarySrc}
+              fallbackSrc={fallbackSrc}
               alt={`Page ${idx + 1}`}
               priority={isFirstThree}
             />

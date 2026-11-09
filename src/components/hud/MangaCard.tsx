@@ -28,7 +28,8 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   source,
 }) => {
   const [bookmarked, setBookmarked] = useState<boolean>(() => isBookmarked(id));
-  const [imgError, setImgError] = useState(false);
+  const [useProxyFallback, setUseProxyFallback] = useState<boolean>(false);
+  const [imgFailed, setImgFailed] = useState<boolean>(false);
 
   const handleBookmarkClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,23 +45,47 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     setBookmarked(updated);
   };
 
+  const directCanLoad =
+    coverUrl &&
+    (coverUrl.includes("uploads.mangadex.org") ||
+      coverUrl.includes("anilist.co") ||
+      coverUrl.includes("s4.anilist.co") ||
+      coverUrl.includes("temp.compsci88.com"));
+
   const resolvedCoverSrc = (() => {
-    if (imgError) return null;
+    if (imgFailed) return null;
     if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
       return null;
     }
-    // AniList CDN
-    if (coverUrl.includes("anilist.co") || coverUrl.includes("s4.anilist.co")) {
+
+    if (useProxyFallback) {
+      return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
+    }
+
+    if (directCanLoad) {
       return coverUrl;
     }
-    // Route through image proxy
+
+    // Default route through proxy for protected domains
     if (coverUrl.startsWith("http")) {
       return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
     }
+
     return coverUrl;
   })();
 
+  const handleImageError = () => {
+    if (!useProxyFallback && directCanLoad) {
+      setUseProxyFallback(true);
+    } else {
+      setImgFailed(true);
+    }
+  };
+
   const targetHref = `/manga/${id}`;
+  const cleanChapterNumber = latestChapter !== undefined
+    ? String(latestChapter).replace(/^(ch\.|ch|chapter)\s*/i, "").trim()
+    : "";
 
   return (
     <Link href={targetHref} className="group block focus:outline-none">
@@ -74,7 +99,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
               alt={title}
               loading="lazy"
               referrerPolicy="no-referrer"
-              onError={() => setImgError(true)}
+              onError={handleImageError}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
@@ -124,11 +149,11 @@ export const MangaCard: React.FC<MangaCardProps> = ({
           </button>
 
           {/* Latest Chapter Pill */}
-          {latestChapter !== undefined && (
+          {cleanChapterNumber && (
             <div className="absolute bottom-2.5 left-2.5 z-10">
               <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-indigo-600/90 backdrop-blur-md text-white font-medium rounded-md shadow-sm">
                 <BookOpen className="w-2.5 h-2.5" />
-                CH. {latestChapter}
+                CH. {cleanChapterNumber}
               </span>
             </div>
           )}
