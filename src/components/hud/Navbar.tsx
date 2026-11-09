@@ -7,10 +7,10 @@ import {
   Search,
   Bookmark,
   Compass,
-  Cpu,
+  Layers,
+  Home,
   Menu,
   X,
-  Flame,
   BookOpen,
   Sparkles,
   Loader2,
@@ -74,7 +74,7 @@ export const Navbar: React.FC = () => {
       } finally {
         setIsSearching(false);
       }
-    }, 220);
+    }, 200);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -99,39 +99,28 @@ export const Navbar: React.FC = () => {
   };
 
   const navLinks = [
-    { label: "Home Deck", href: "/", icon: Flame },
-    { label: "Explore Codex", href: "/explore", icon: Compass },
-    { label: "Extensions", href: "/extensions", icon: Cpu },
-    { label: "Bookmarks", href: "/bookmarks", icon: Bookmark },
+    { label: "Home", href: "/", icon: Home },
+    { label: "Browse", href: "/explore", icon: Compass },
+    { label: "Sources", href: "/extensions", icon: Layers },
+    { label: "Library", href: "/bookmarks", icon: Bookmark },
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-void/90 backdrop-blur-xl border-b border-sanctum-border">
-      {/* Top Cyber Telemetry Line */}
-      <div className="w-full h-[2px] bg-gradient-to-r from-sindoor via-gada to-prana" />
-
+    <nav className="sticky top-0 z-50 w-full bg-dark/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-3">
-          {/* Brand Logo & Hanuman Emblem */}
-          <Link href="/" className="flex items-center gap-3 group flex-shrink-0">
-            <div className="relative w-10 h-10 rounded-sm bg-sanctum border border-gada/50 flex items-center justify-center shadow-gada-gold group-hover:border-sindoor transition-colors">
-              <span className="font-mythic text-xl text-gada-bright group-hover:text-sindoor transition-colors">
-                ॐ
-              </span>
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-sindoor rounded-full animate-ping" />
+        <div className="flex items-center justify-between h-16 gap-4">
+          {/* Brand Logo - Mangayomi Style */}
+          <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand to-accent flex items-center justify-center shadow-lg shadow-brand/20 group-hover:scale-105 transition-transform duration-200">
+              <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mythic font-bold text-lg text-ashram tracking-wider">
-                  VAJRA
-                </span>
-                <span className="font-hud uppercase text-xs px-1.5 py-0.5 rounded bg-sindoor/20 text-sindoor font-semibold tracking-widest border border-sindoor/40">
-                  HUD 2.5
-                </span>
-              </div>
-              <div className="font-mono text-[10px] text-ashram-muted tracking-widest uppercase">
-                HANUMAN CYBER-READER
-              </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-sans font-bold text-lg tracking-tight text-white group-hover:text-brand-light transition-colors">
+                Mangayomi
+              </span>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-full bg-brand/20 text-brand-light border border-brand/30">
+                Web
+              </span>
             </div>
           </Link>
 
@@ -139,13 +128,13 @@ export const Navbar: React.FC = () => {
           <div ref={searchContainerRef} className="relative hidden md:block flex-1 max-w-md lg:max-w-lg">
             <form
               onSubmit={handleSearchSubmit}
-              className="relative flex items-center bg-sanctum/95 border border-sanctum-border focus-within:border-gada focus-within:ring-1 focus-within:ring-gada rounded transition-all"
+              className="relative flex items-center bg-dark-surface border border-dark-border focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 rounded-xl transition-all"
             >
-              <div className="pl-3 flex items-center pointer-events-none">
+              <div className="pl-3.5 flex items-center pointer-events-none text-slate-400">
                 {isSearching ? (
-                  <Loader2 className="w-4 h-4 text-gada animate-spin" />
+                  <Loader2 className="w-4 h-4 text-brand animate-spin" />
                 ) : (
-                  <Search className="w-4 h-4 text-ashram-muted" />
+                  <Search className="w-4 h-4" />
                 )}
               </div>
 
@@ -156,174 +145,157 @@ export const Navbar: React.FC = () => {
                 onFocus={() => {
                   if (suggestions.length > 0) setShowDropdown(true);
                 }}
-                placeholder="Search manga or manhwa..."
-                className="w-full bg-transparent text-xs font-mono text-ashram placeholder-ashram-muted/70 outline-none px-2.5 py-2 pr-14"
+                placeholder="Search manga, manhwa, authors..."
+                className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-400/80 outline-none px-3 py-2 pr-16"
               />
 
               <button
                 type="submit"
-                className="absolute right-1 px-3 py-1 bg-gada/20 text-gada-bright font-hud text-[10px] uppercase font-bold rounded hover:bg-gada hover:text-void transition-colors shadow-sm"
+                className="absolute right-1.5 px-3 py-1 bg-brand hover:bg-brand-hover text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
               >
-                SCAN
+                Search
               </button>
             </form>
 
-            {/* Live Autocomplete Suggestions HUD */}
+            {/* Live Autocomplete Suggestions */}
             {showDropdown && suggestions.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-sanctum/95 border border-gada/40 rounded-sm shadow-2xl backdrop-blur-xl z-50 overflow-hidden divide-y divide-sanctum-border/60">
-                <div className="px-3 py-1.5 bg-void/80 flex items-center justify-between text-[10px] font-mono text-ashram-muted">
-                  <span className="flex items-center gap-1 text-gada-bright uppercase font-bold">
-                    <Sparkles className="w-3 h-3 text-gada" />
-                    MATCHING MANGA ARCHIVES
+              <div className="absolute left-0 right-0 top-full mt-2 bg-dark-elevated border border-white/10 rounded-2xl shadow-2xl backdrop-blur-xl z-50 overflow-hidden divide-y divide-white/5">
+                <div className="px-3.5 py-2 bg-dark-surface/80 flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span className="flex items-center gap-1.5 text-brand-light font-semibold">
+                    <Sparkles className="w-3.5 h-3.5 text-brand" />
+                    Quick Results
                   </span>
-                  <span>{suggestions.length} FOUND</span>
+                  <span>{suggestions.length} titles</span>
                 </div>
 
                 <div className="max-h-80 overflow-y-auto">
                   {suggestions.map((item) => (
                     <button
                       key={item.id}
-                      type="button"
                       onClick={() => handleSelectSuggestion(item.id)}
-                      className="w-full px-3 py-2 text-left flex items-center gap-3 hover:bg-gada-dim hover:border-l-2 hover:border-gada transition-all group"
+                      className="w-full px-3.5 py-2.5 flex items-center gap-3 hover:bg-white/5 transition-colors text-left group"
                     >
-                      {/* Thumbnail */}
-                      <div className="w-9 h-12 bg-void flex-shrink-0 rounded overflow-hidden border border-sanctum-border relative flex items-center justify-center">
-                        {item.coverUrl && !item.coverUrl.includes("placeholder") ? (
+                      <div className="w-10 h-14 rounded-lg bg-dark overflow-hidden flex-shrink-0 relative border border-white/10">
+                        {item.coverUrl ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
                             src={
-                              item.coverUrl.includes("s4.anilist.co") ||
                               item.coverUrl.includes("anilist.co")
                                 ? item.coverUrl
                                 : `/api/proxy/image?url=${encodeURIComponent(item.coverUrl)}`
                             }
                             alt={item.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLElement).style.display = "none";
-                            }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center font-mythic text-gada text-xs">
-                            ॐ
+                          <div className="w-full h-full flex items-center justify-center text-slate-500">
+                            <BookOpen className="w-4 h-4" />
                           </div>
                         )}
                       </div>
 
-                      {/* Title & Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="font-hud text-xs font-bold text-ashram group-hover:text-gada-bright truncate">
+                        <div className="text-sm font-medium text-slate-100 truncate group-hover:text-brand-light transition-colors">
                           {item.title}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {item.totalChapters && item.totalChapters > 0 ? (
-                            <span className="inline-flex items-center gap-1 font-mono text-[9px] text-prana uppercase font-bold">
-                              <BookOpen className="w-2.5 h-2.5" />
-                              {item.totalChapters} CH
+                        <div className="flex items-center gap-2 mt-1">
+                          {item.status && (
+                            <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-emerald-online/10 text-emerald-online">
+                              {item.status}
                             </span>
-                          ) : null}
-                          {item.tags && item.tags.length > 0 && (
-                            <span className="font-mono text-[9px] text-ashram-muted/80 truncate">
-                              {item.tags.slice(0, 2).join(" • ")}
+                          )}
+                          {item.totalChapters !== undefined && item.totalChapters > 0 && (
+                            <span className="text-[10px] text-slate-400 font-medium">
+                              {item.totalChapters} Chs
                             </span>
                           )}
                         </div>
                       </div>
-
-                      <span className="font-hud text-[10px] text-gada uppercase font-bold opacity-0 group-hover:opacity-100 transition-opacity">
-                        READ →
-                      </span>
                     </button>
                   ))}
                 </div>
 
-                <div className="p-2 bg-void/90 text-center">
-                  <button
-                    type="button"
-                    onClick={handleSearchSubmit}
-                    className="text-[11px] font-mono text-ashram-muted hover:text-gada-bright transition-colors uppercase font-bold"
-                  >
-                    PRESS ENTER OR CLICK SCAN TO VIEW ALL RESULTS
-                  </button>
-                </div>
+                <button
+                  onClick={handleSearchSubmit}
+                  className="w-full py-2.5 bg-dark-surface/90 hover:bg-white/5 text-xs font-semibold text-brand-light text-center transition-colors"
+                >
+                  View all results for &ldquo;{searchQuery}&rdquo; →
+                </button>
               </div>
             )}
           </div>
 
           {/* Desktop Navigation Links */}
-          <div className="hidden md:flex items-center gap-1 flex-shrink-0">
-            {navLinks.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
+          <div className="hidden md:flex items-center gap-1.5">
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              const isActive = pathname === link.href;
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded text-xs font-hud font-semibold uppercase tracking-wider transition-all ${
+                  key={link.href}
+                  href={link.href}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
                     isActive
-                      ? "text-gada-bright bg-gada-dim border border-gada/40 shadow-gada-gold"
-                      : "text-ashram-muted hover:text-ashram hover:bg-sanctum-hover"
+                      ? "bg-brand text-white shadow-lg shadow-brand/20 font-semibold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${isActive ? "text-gada" : ""}`} />
-                  {item.label}
+                  <Icon className="w-4 h-4" />
+                  <span>{link.label}</span>
                 </Link>
               );
             })}
-
-            {/* Telemetry Status Indicator */}
-            <div className="ml-2 pl-2 border-l border-sanctum-border flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-prana animate-pulse shadow-prana-cyan" />
-              <span className="font-mono text-[10px] text-prana uppercase tracking-wider hidden lg:inline">
-                PRANA: 100%
-              </span>
-            </div>
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex items-center md:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded bg-sanctum border border-sanctum-border text-ashram hover:text-gada"
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              aria-label="Toggle Menu"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-sanctum/95 border-b border-sanctum-border px-4 pt-3 pb-5 space-y-3">
-          <form onSubmit={handleSearchSubmit} className="relative w-full">
+        <div className="md:hidden border-t border-white/10 bg-dark-surface/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-4">
+          <form onSubmit={handleSearchSubmit} className="relative">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="SEARCH MANGA..."
-              className="w-full bg-void border border-sanctum-border text-xs font-mono text-ashram rounded px-3 py-2 pl-9 outline-none focus:border-gada"
+              placeholder="Search manga..."
+              className="w-full bg-dark border border-dark-border rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-400 outline-none focus:border-brand"
             />
-            <Search className="w-4 h-4 text-ashram-muted absolute left-3 top-2.5 pointer-events-none" />
+            <button
+              type="submit"
+              className="absolute right-2 top-2 p-1 text-slate-400 hover:text-white"
+            >
+              <Search className="w-4 h-4" />
+            </button>
           </form>
 
           <div className="space-y-1">
-            {navLinks.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              const isActive = pathname === link.href;
               return (
                 <Link
-                  key={item.href}
-                  href={item.href}
+                  key={link.href}
+                  href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded text-sm font-hud uppercase tracking-wider ${
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                     isActive
-                      ? "text-gada-bright bg-gada-dim border border-gada/40"
-                      : "text-ashram-muted hover:text-ashram"
+                      ? "bg-brand text-white font-semibold"
+                      : "text-slate-300 hover:text-white hover:bg-white/5"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
+                  <Icon className="w-5 h-5" />
+                  <span>{link.label}</span>
                 </Link>
               );
             })}

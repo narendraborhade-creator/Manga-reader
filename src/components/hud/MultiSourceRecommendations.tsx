@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { MangaCard } from "./MangaCard";
-import { Sparkles, Flame, Compass, BookOpen, Trophy, Zap } from "lucide-react";
+import { Sparkles, Flame, BookOpen, Trophy, Zap } from "lucide-react";
 
 export interface RecommendationItem {
   id: string;
@@ -50,29 +50,29 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
   })();
 
   const tabs = [
-    { id: "all", label: "Trending Worldwide", icon: Flame, color: "text-sindoor" },
-    { id: "shonen", label: "Action & Shonen", icon: Zap, color: "text-gada" },
-    { id: "seinen", label: "Seinen & Dark Fantasy", icon: BookOpen, color: "text-cyan-400" },
-    { id: "top", label: "Community Favorites", icon: Sparkles, color: "text-prana" },
-    { id: "awards", label: "Top Rated Masterpieces", icon: Trophy, color: "text-purple-400" },
+    { id: "all", label: "Trending Worldwide", icon: Flame },
+    { id: "shonen", label: "Action & Shonen", icon: Zap },
+    { id: "seinen", label: "Seinen & Drama", icon: BookOpen },
+    { id: "top", label: "Community Favorites", icon: Sparkles },
+    { id: "awards", label: "Top Rated", icon: Trophy },
   ] as const;
 
   return (
     <section className="space-y-6">
       {/* Header and Category Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-sanctum-border">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
-            <Sparkles className="w-4 h-4 text-gada" />
-            VAJRA CODEX ARCHIVE // CURATED TITLES
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[#20273a]">
+        <div>
+          <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs uppercase tracking-wider mb-1">
+            <Sparkles className="w-3.5 h-3.5" />
+            Curated Catalog
           </div>
-          <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
-            RECOMMENDED FOR YOU
+          <h2 className="font-sans text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Recommended for You
           </h2>
         </div>
 
         {/* Category Switcher Tabs */}
-        <div className="flex flex-wrap items-center gap-1.5 bg-sanctum/90 p-1 rounded-sm border border-sanctum-border">
+        <div className="flex flex-wrap items-center gap-1.5 bg-[#121622] p-1.5 rounded-xl border border-[#23293e]">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -80,13 +80,13 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-mono font-bold uppercase transition-all ${
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-all ${
                   isActive
-                    ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-                    : "text-ashram-muted hover:text-ashram hover:bg-void/60"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "text-slate-400 hover:text-white hover:bg-[#1b2234]"
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? "text-white" : tab.color}`} />
+                <Icon className="w-3.5 h-3.5" />
                 {tab.label}
               </button>
             );
@@ -105,6 +105,7 @@ export const MultiSourceRecommendations: React.FC<MultiSourceRecommendationsProp
             status={m.status}
             score={m.score}
             genres={m.genres}
+            source={m.source}
           />
         ))}
       </div>

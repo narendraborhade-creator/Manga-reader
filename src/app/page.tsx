@@ -5,9 +5,8 @@ import { fetchAniListTrending, fetchAniListPopular } from "@/lib/adapters/anilis
 import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { HeroCarousel } from "@/components/hud/HeroCarousel";
-import { YantraCard } from "@/components/hud/YantraCard";
 import { MultiSourceRecommendations } from "@/components/hud/MultiSourceRecommendations";
-import { Sparkles, Clock, Compass, BookOpen, ChevronRight } from "lucide-react";
+import { Clock, Compass, BookOpen, ChevronRight, Layers } from "lucide-react";
 
 export const revalidate = 60; // Fresh chapters every minute
 
@@ -63,6 +62,19 @@ async function fetchCuratedManga(title: string) {
 
   return null;
 }
+
+const POPULAR_GENRES = [
+  "Action",
+  "Adventure",
+  "Fantasy",
+  "Romance",
+  "Comedy",
+  "Sci-Fi",
+  "Shounen",
+  "Seinen",
+  "Drama",
+  "Mystery",
+];
 
 export default async function HomePage() {
   const [
@@ -134,91 +146,111 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-12 pb-16">
-      {/* 1. Hero Carousel ("Sundara Matrix") */}
+      {/* 1. Hero Spotlight Carousel */}
       {trendingMedia.length > 0 && <HeroCarousel items={trendingMedia} />}
 
-      {/* 2. Real-Time Latest Releases Feed (Deduplicated Unique Manga) */}
+      {/* 2. Quick Genre Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <Link
+          href="/explore"
+          className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-sans text-xs font-semibold whitespace-nowrap shadow-md shadow-indigo-600/20"
+        >
+          All Genres
+        </Link>
+        {POPULAR_GENRES.map((genre) => (
+          <Link
+            key={genre}
+            href={`/explore?genre=${encodeURIComponent(genre)}`}
+            className="px-4 py-2 rounded-xl bg-[#121622] hover:bg-[#1a2030] text-slate-300 hover:text-white border border-[#23293e] font-sans text-xs font-medium whitespace-nowrap transition-colors"
+          >
+            {genre}
+          </Link>
+        ))}
+      </div>
+
+      {/* 3. Real-Time Latest Releases Feed */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-sanctum-border">
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded bg-sindoor/20 text-sindoor border border-sindoor/40 shadow-sindoor-neon">
-              <Clock className="w-4 h-4" />
+        <div className="flex flex-wrap items-center justify-between gap-4 pb-3 border-b border-[#20273a]">
+          <div className="flex items-center gap-3">
+            <span className="p-2 rounded-xl bg-indigo-600/10 text-indigo-400 border border-indigo-500/20">
+              <Clock className="w-5 h-5" />
             </span>
             <div>
-              <h2 className="font-hud uppercase text-lg sm:text-xl font-bold text-ashram tracking-wider">
-                LATEST RELEASES
+              <h2 className="font-sans text-xl sm:text-2xl font-bold text-white tracking-tight">
+                Latest Chapter Updates
               </h2>
-              <p className="font-mono text-xs text-ashram-muted">
-                Freshly released chapters with verified English translations
+              <p className="font-sans text-xs text-slate-400">
+                Fresh releases verified across official and community mirrors
               </p>
             </div>
           </div>
 
           <Link
             href="/explore"
-            className="flex items-center gap-1 font-mono text-xs text-gada hover:text-gada-bright uppercase transition-colors"
+            className="flex items-center gap-1 font-sans text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
           >
-            VIEW ALL RELEASES
-            <ChevronRight className="w-3.5 h-3.5" />
+            Browse All Releases
+            <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
 
         {/* Latest Chapters Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {latestChapters.map((chapter) => (
-            <div key={chapter.externalChapId} className="group flex flex-col h-full">
-              <YantraCard
-                glowColor="sindoor"
-                className="h-full flex flex-col bg-sanctum/90 hover:border-sindoor/60 transition-all duration-300"
+            <div
+              key={chapter.externalChapId}
+              className="group flex flex-col h-full bg-[#121622] border border-[#23293e] hover:border-indigo-500/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10"
+            >
+              {/* Cover Image */}
+              <Link
+                href={`/manga/${chapter.mangaExternalId}`}
+                className="relative aspect-[3/4] w-full overflow-hidden bg-[#0d1017] block"
               >
-                {/* Cover Image links to Series */}
-                <Link
-                  href={`/manga/${chapter.mangaExternalId}`}
-                  className="relative aspect-[3/4] w-full overflow-hidden bg-void block"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`/api/proxy/image?url=${encodeURIComponent(chapter.coverUrl)}`}
-                    alt={chapter.mangaTitle}
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute top-2 left-2 z-10">
-                    <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-sindoor text-white rounded-sm shadow-sindoor-neon">
-                      CH. {chapter.chapterNumber}
-                    </span>
-                  </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/proxy/image?url=${encodeURIComponent(chapter.coverUrl)}`}
+                  alt={chapter.mangaTitle}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute top-2.5 left-2.5 z-10">
+                  <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-indigo-600 text-white rounded-md shadow-sm">
+                    CH. {chapter.chapterNumber}
+                  </span>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-[#121622] via-transparent to-transparent opacity-80 pointer-events-none" />
+              </Link>
+
+              {/* Title & Actions */}
+              <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                <Link href={`/manga/${chapter.mangaExternalId}`}>
+                  <h3 className="font-sans font-semibold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug">
+                    {chapter.mangaTitle}
+                  </h3>
+                  <p className="font-sans text-[11px] text-slate-400 mt-1">
+                    English Chapter {chapter.chapterNumber}
+                  </p>
                 </Link>
 
-                {/* Info & Direct Read */}
-                <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
-                  <Link href={`/manga/${chapter.mangaExternalId}`}>
-                    <h3 className="font-hud font-bold text-sm text-ashram group-hover:text-sindoor-glow transition-colors line-clamp-2 leading-snug">
-                      {chapter.mangaTitle}
-                    </h3>
-                    <p className="font-mono text-[10px] text-ashram-muted/70 line-clamp-1 mt-1">
-                      English Translation
-                    </p>
+                <div className="flex items-center justify-between pt-2 border-t border-[#20273a] text-xs font-sans">
+                  <Link
+                    href={`/read/${chapter.externalChapId}`}
+                    className="font-semibold text-indigo-400 hover:text-indigo-300 transition-colors flex items-center gap-1"
+                  >
+                    Read Chapter →
                   </Link>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono">
-                    <Link
-                      href={`/read/${chapter.externalChapId}`}
-                      className="font-bold text-sindoor hover:text-sindoor-glow transition-colors flex items-center gap-1"
-                    >
-                      READ NOW →
-                    </Link>
-                    <span className="text-gada-bright font-bold">NEW</span>
-                  </div>
+                  <span className="text-emerald-400 text-[10px] uppercase font-mono font-bold">
+                    NEW
+                  </span>
                 </div>
-              </YantraCard>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* 3. Curated Manga Recommendations */}
+      {/* 4. Curated Recommendations Shelf */}
       <MultiSourceRecommendations
         initialItems={combinedCurated.slice(0, 12)}
         mangaPillItems={pillFormatted}
@@ -227,36 +259,37 @@ export default async function HomePage() {
         aniListItems={aniFormatted}
       />
 
-      {/* 4. Hanuman Vedic Cyberpunk Feature Ribbon */}
-      <section className="relative overflow-hidden rounded-sm border border-gada/40 bg-sanctum/90 p-8 shadow-hud-glow">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-sindoor/10 rounded-full blur-3xl pointer-events-none" />
+      {/* 5. Mangayomi Ecosystem Feature Spotlight */}
+      <section className="relative overflow-hidden rounded-2xl border border-[#23293e] bg-gradient-to-br from-[#121622] via-[#10141f] to-[#0a0d14] p-8 md:p-10 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-80 h-80 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
-              <Sparkles className="w-4 h-4 text-gada" />
-              SANKAT MOCHAN PROTOCOL // HIGH-SPEED MANGA
+          <div className="space-y-3 md:col-span-2">
+            <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs uppercase tracking-wider font-semibold">
+              <Layers className="w-4 h-4" />
+              Powered by Mangayomi Open Architecture
             </div>
-            <h3 className="font-mythic text-2xl font-bold text-ashram">
-              Integrated Manga Streaming
+            <h3 className="font-sans text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+              360+ Multi-Source Manga & Manhwa Engines
             </h3>
-            <p className="font-hud text-sm text-ashram-muted leading-relaxed max-w-xl">
-              Engineered with automated node resolution, high-speed image CDNs, and multi-stream failover. Enjoy uninterrupted reading in Webtoon, RTL, and Single Page modes starting directly from Chapter 1.
+            <p className="font-sans text-sm text-slate-300 leading-relaxed max-w-xl">
+              Enjoy continuous Webtoon vertical scroll, paged reading, zero ads, instant caching, and multi-source chapter comparison. Stream verified releases directly from the world&apos;s leading manga archives.
             </p>
           </div>
+
           <div className="flex flex-col sm:flex-row md:flex-col gap-3 justify-end">
             <Link
               href="/explore"
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-sm bg-gada text-void font-hud font-bold uppercase tracking-wider text-sm hover:bg-gada-bright transition-all shadow-gada-gold"
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold text-sm transition-all shadow-lg shadow-indigo-600/25 hover:scale-105"
             >
               <Compass className="w-4 h-4" />
-              Explore All Titles
+              Browse Entire Catalog
             </Link>
             <Link
               href="/extensions"
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-sm bg-void border border-sanctum-border text-ashram font-hud font-semibold uppercase tracking-wider text-sm hover:border-gada transition-all"
+              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-[#182032] hover:bg-[#202b44] text-slate-200 border border-[#2b3550] font-sans font-medium text-sm transition-colors"
             >
               <BookOpen className="w-4 h-4" />
-              Engine Integrations
+              Explore Extensions Store
             </Link>
           </div>
         </div>

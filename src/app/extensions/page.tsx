@@ -3,61 +3,79 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { getExtensionsCatalog, searchManga } from "@/lib/api-client";
+import { getExtensionsCatalog, searchManga, MangayomiExtension } from "@/lib/api-client";
 import { MangaDexManga } from "@/lib/adapters/mangadex";
-import { KeiyoushiExtension } from "@/lib/adapters/keiyoushi-parser";
-import { YantraCard } from "@/components/hud/YantraCard";
+import { MangaCard } from "@/components/hud/MangaCard";
 import { CyberGadaLoader } from "@/components/hud/CyberGadaLoader";
 import {
   Cpu,
   Search,
-  CheckCircle2,
-  ArrowRight,
-  Zap,
+  ExternalLink,
   BookOpen,
   Layers,
   Sparkles,
   Loader2,
+  Globe,
+  ShieldCheck,
+  Code2,
 } from "lucide-react";
 
 const CORE_ENGINES = [
   {
-    id: "allmanga",
-    name: "AllManga & Manhwa Engine",
-    lang: "EN",
-    status: "100% ACTIVE & INTEGRATED",
-    description: "Massive library of Korean manhwa, otome isekai, and webtoons with full 30-100+ chapter archives. Automatic chapter comparison.",
-    category: "Korean Manhwa, Webtoons & Global Manga",
-  },
-  {
-    id: "mangadex",
-    name: "MangaDex v5 Global Engine",
+    id: "all",
+    name: "Unified Multi-Source Engine",
     lang: "MULTI",
-    status: "100% ACTIVE & INTEGRATED",
-    description: "Decentralized open-source manga database. Verified community scanlations with real-time updates and clean English titles.",
-    category: "Global Community Scans",
+    status: "Active & Verified",
+    description: "Queries all connected manga archives in parallel with automatic title deduplication and instant fallback.",
+    badge: "Aggregator",
   },
   {
-    id: "mangapill",
-    name: "MangaPill Reading Engine",
+    id: "asura",
+    name: "Asura Scans Engine",
     lang: "EN",
-    status: "100% ACTIVE & INTEGRATED",
-    description: "High-speed English scanlation mirror with full archives starting from Chapter 1. Direct page streaming with zero external redirects.",
-    category: "Action, Shonen, Seinen",
+    status: "Active & Verified",
+    description: "The primary source for HD English manhwa releases including Solo Leveling, Swordmaster's Son, and Reaper.",
+    badge: "Manhwa HD",
   },
   {
     id: "weebcentral",
-    name: "WeebCentral HD CDN Engine",
+    name: "WeebCentral Stream",
     lang: "EN",
-    status: "100% ACTIVE & INTEGRATED",
-    description: "High-definition manga image stream with official digital color and Shonen Jump archives.",
-    category: "HD Scans, Color Manga",
+    status: "Active & Verified",
+    description: "High-speed English manga and digital color archive with complete chapter sets starting from Chapter 1.",
+    badge: "High-Speed",
   },
+  {
+    id: "mangapill",
+    name: "MangaPill Mirror",
+    lang: "EN",
+    status: "Active & Verified",
+    description: "Direct clean image CDN for Shonen Jump, Kodansha, and weekly English scanlations with zero ads.",
+    badge: "Clean Stream",
+  },
+  {
+    id: "mangadex",
+    name: "MangaDex v5 Global API",
+    lang: "MULTI",
+    status: "Active & Verified",
+    description: "Official decentralized API supporting thousands of series, multiple languages, and community translations.",
+    badge: "Official API",
+  },
+];
+
+const LANG_TABS = [
+  { id: "all", label: "All Languages" },
+  { id: "en", label: "English (EN)" },
+  { id: "es", label: "Spanish (ES)" },
+  { id: "fr", label: "French (FR)" },
+  { id: "id", label: "Indonesian (ID)" },
+  { id: "pt", label: "Portuguese (PT)" },
+  { id: "ja", label: "Japanese (JA)" },
 ];
 
 export default function ExtensionsPage() {
   const router = useRouter();
-  const [catalog, setCatalog] = useState<KeiyoushiExtension[]>([]);
+  const [catalog, setCatalog] = useState<MangayomiExtension[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(true);
 
   // In-page search console
@@ -67,8 +85,9 @@ export default function ExtensionsPage() {
   const [isSearchingConsole, setIsSearchingConsole] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Extended catalog search filter
+  // Filter states
   const [catalogSearch, setCatalogSearch] = useState("");
+  const [activeLang, setActiveLang] = useState("all");
 
   useEffect(() => {
     getExtensionsCatalog()
@@ -99,315 +118,314 @@ export default function ExtensionsPage() {
   };
 
   const filteredExtensions = catalog.filter((ext) => {
-    const q = catalogSearch.toLowerCase();
-    return (
-      ext.name.toLowerCase().includes(q) ||
-      ext.pkg.toLowerCase().includes(q) ||
-      ext.sources.some((s) => s.name.toLowerCase().includes(q))
-    );
+    const matchesQuery =
+      !catalogSearch ||
+      ext.name.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+      ext.baseUrl.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+      ext.typeSource.toLowerCase().includes(catalogSearch.toLowerCase());
+
+    const matchesLang =
+      activeLang === "all" ||
+      ext.lang.toLowerCase() === activeLang.toLowerCase();
+
+    return matchesQuery && matchesLang;
   });
 
   return (
-    <div className="space-y-10 pb-16">
+    <div className="space-y-12 pb-16">
       {/* Header */}
-      <div className="space-y-2 pb-4 border-b border-sanctum-border">
-        <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
-          <Layers className="w-4 h-4 text-gada" />
-          INTEGRATED ENGINE HUB // MIHON & KEIYOUSHI EXTENSIONS
+      <div className="space-y-3 pb-4 border-b border-[#20273a]">
+        <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs uppercase tracking-wider font-semibold">
+          <Layers className="w-4 h-4" />
+          Mangayomi Extension Repository
         </div>
-        <h1 className="font-mythic text-2xl sm:text-4xl font-bold text-ashram">
-          In-App Reading Engines
+        <h1 className="font-sans text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Extension Store & Source Engines
         </h1>
-        <p className="font-hud text-sm text-ashram-muted max-w-2xl">
-          All top Mihon and Keiyoushi source engines are integrated natively into the website. No APKs, no GitHub downloads, and no external redirects. Everything searches, compares chapter counts, and streams directly inside the built-in reader.
+        <p className="font-sans text-sm text-slate-400 max-w-2xl leading-relaxed">
+          Integrated with the official <a href="https://github.com/kodjodevf/mangayomi" target="_blank" rel="noreferrer" className="text-indigo-400 underline hover:text-indigo-300">Mangayomi Extension Repository</a>. Browse over 360+ community-maintained sources, query live chapter streams, and enjoy distraction-free reading.
         </p>
       </div>
 
-      {/* Interactive Multi-Source Search Console */}
-      <section className="space-y-4 bg-sanctum/90 p-6 rounded-sm border border-gada/30 shadow-gada-gold">
+      {/* 1. Core Built-In Engines */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-gada" />
-            <h2 className="font-hud uppercase text-lg font-bold text-ashram tracking-wider">
-              NATIVE MULTI-SOURCE SEARCH CONSOLE
-            </h2>
-          </div>
-          <span className="font-mono text-[10px] text-prana uppercase tracking-wider hidden sm:inline">
-            ZERO EXTERNAL REDIRECTS // 100% IN-APP
+          <h2 className="font-sans text-lg font-bold text-white flex items-center gap-2">
+            <Cpu className="w-5 h-5 text-indigo-400" />
+            Core Built-in Engines
+          </h2>
+          <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+            5 Engines Active
           </span>
         </div>
 
-        <form onSubmit={handleConsoleSearch} className="space-y-3">
-          {/* Source Engine Selector */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-ashram-muted uppercase mr-1">
-              SEARCH SOURCE:
-            </span>
-            {[
-              { id: "all", label: "All Sources Unified" },
-              { id: "allmanga", label: "AllManga (Manhwa 30+ CH)" },
-              { id: "mangadex", label: "MangaDex v5" },
-              { id: "mangapill", label: "MangaPill" },
-              { id: "weebcentral", label: "WeebCentral HD" },
-            ].map((eng) => (
-              <button
-                key={eng.id}
-                type="button"
-                onClick={() => setSelectedEngine(eng.id)}
-                className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
-                  selectedEngine === eng.id
-                    ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-                    : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram"
-                }`}
-              >
-                {eng.label}
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {CORE_ENGINES.map((eng) => (
+            <div
+              key={eng.id}
+              className="p-5 rounded-2xl bg-[#121622] border border-[#23293e] hover:border-indigo-500/50 flex flex-col justify-between space-y-4 transition-all duration-300 shadow-lg"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-mono uppercase font-semibold bg-indigo-600/20 text-indigo-300 border border-indigo-500/30">
+                    {eng.badge}
+                  </span>
+                  <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1 font-semibold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    {eng.status}
+                  </span>
+                </div>
+                <h3 className="font-sans font-bold text-base text-white">
+                  {eng.name}
+                </h3>
+                <p className="font-sans text-xs text-slate-400 mt-2 leading-relaxed">
+                  {eng.description}
+                </p>
+              </div>
 
-          {/* Search Input Bar */}
-          <div className="relative flex items-center">
+              <div className="pt-3 border-t border-[#1e2538] flex items-center justify-between">
+                <span className="text-[11px] font-mono text-slate-500">
+                  LANG: {eng.lang}
+                </span>
+                <button
+                  onClick={() => {
+                    setSelectedEngine(eng.id);
+                    setConsoleQuery("Solo Leveling");
+                    searchManga("Solo Leveling", 12, eng.id).then((r) => {
+                      setConsoleResults(r);
+                      setHasSearched(true);
+                    });
+                  }}
+                  className="text-xs font-sans font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                >
+                  Test Query →
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 2. Interactive In-Page Query Console */}
+      <section className="space-y-5 bg-[#121622] p-6 rounded-2xl border border-[#23293e] shadow-xl">
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-5 h-5 text-indigo-400" />
+          <div>
+            <h2 className="font-sans text-base font-bold text-white">
+              Live Source Query Sandbox
+            </h2>
+            <p className="font-sans text-xs text-slate-400">
+              Directly query titles across specific source adapters to inspect availability
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleConsoleSearch} className="flex flex-col sm:flex-row gap-3">
+          <select
+            value={selectedEngine}
+            onChange={(e) => setSelectedEngine(e.target.value)}
+            className="bg-[#0b0e14] border border-[#23293e] text-xs font-sans text-slate-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 transition-colors sm:w-56"
+          >
+            <option value="all">Unified Codex (All)</option>
+            <option value="asura">Asura Scans (Manhwa)</option>
+            <option value="weebcentral">WeebCentral</option>
+            <option value="mangapill">MangaPill</option>
+            <option value="mangadex">MangaDex</option>
+          </select>
+
+          <div className="relative flex-1">
             <input
               type="text"
               value={consoleQuery}
               onChange={(e) => setConsoleQuery(e.target.value)}
-              placeholder="Search any series (e.g. How to Ride the Hero's Coattails, Solo Leveling, One Piece)..."
-              className="w-full bg-void border border-sanctum-border text-sm font-mono text-ashram rounded px-4 py-3 pl-11 pr-28 outline-none focus:border-gada transition-all"
+              placeholder="Enter series title to test (e.g. Solo Leveling, Berserk, One Piece)..."
+              className="w-full bg-[#0b0e14] border border-[#23293e] text-xs font-sans text-slate-100 rounded-xl px-4 py-2.5 pl-10 outline-none focus:border-indigo-500 transition-colors"
             />
-            <Search className="w-5 h-5 text-ashram-muted absolute left-3.5 pointer-events-none" />
-            <button
-              type="submit"
-              disabled={isSearchingConsole}
-              className="absolute right-2 px-5 py-2 bg-gada text-void hover:bg-gada-bright font-hud font-bold text-xs uppercase tracking-wider rounded transition-all shadow-gada-gold flex items-center gap-1.5"
-            >
-              {isSearchingConsole ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>SCANNING</span>
-                </>
-              ) : (
-                <span>SEARCH</span>
-              )}
-            </button>
+            <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3 pointer-events-none" />
           </div>
+
+          <button
+            type="submit"
+            disabled={isSearchingConsole}
+            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-sans font-semibold text-xs shadow-md shadow-indigo-600/25 transition-all"
+          >
+            {isSearchingConsole ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Querying...
+              </>
+            ) : (
+              "Run Query"
+            )}
+          </button>
         </form>
 
-        {/* Live Search Results */}
+        {/* Console Search Results */}
         {hasSearched && (
-          <div className="pt-4 border-t border-sanctum-border/60 space-y-4">
-            <div className="flex items-center justify-between text-xs font-mono text-ashram-muted">
-              <span>FOUND {consoleResults.length} RESULTS</span>
-              <span className="text-gada-bright">COMPARISON ENGINE ACTIVE</span>
+          <div className="pt-4 border-t border-[#1e2538] space-y-3">
+            <div className="flex items-center justify-between text-xs font-sans text-slate-400">
+              <span>{consoleResults.length} series resolved from engine</span>
+              <span className="text-indigo-400 font-mono uppercase font-semibold">
+                Engine: {selectedEngine}
+              </span>
             </div>
 
-            {isSearchingConsole ? (
-              <div className="py-12">
-                <CyberGadaLoader
-                  size="sm"
-                  text="ॐ SCANNING SOURCES..."
-                  subtext="AGGREGATING FULL CHAPTER LISTINGS"
-                />
-              </div>
-            ) : consoleResults.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {consoleResults.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {consoleResults.map((manga) => (
-                  <Link
+                  <MangaCard
                     key={manga.id}
-                    href={`/manga/${manga.id}`}
-                    className="p-3 bg-void/90 border border-sanctum-border hover:border-gada rounded flex gap-3 group transition-all"
-                  >
-                    <div className="w-16 h-22 bg-sanctum flex-shrink-0 rounded overflow-hidden relative">
-                      {manga.coverUrl ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img
-                          src={
-                            manga.coverUrl.includes("uploads.mangadex.org") ||
-                            manga.coverUrl.includes("anilist.co")
-                              ? manga.coverUrl
-                              : `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}`
-                          }
-                          alt={manga.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                          onError={(e) => {
-                            (e.target as HTMLElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center font-mythic text-gada text-sm">
-                          ॐ
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div>
-                        <h4 className="font-hud font-bold text-xs text-ashram group-hover:text-gada-bright truncate leading-tight">
-                          {manga.title}
-                        </h4>
-                        {(manga as any).totalChapters ? (
-                          <div className="flex items-center gap-1 font-mono text-[10px] text-prana mt-1 font-bold">
-                            <BookOpen className="w-3 h-3" />
-                            <span>{(manga as any).totalChapters} CHAPTERS</span>
-                          </div>
-                        ) : null}
-                      </div>
-                      <span className="font-hud text-[10px] text-sindoor font-bold uppercase tracking-wider flex items-center gap-1">
-                        <span>OPEN CHAPTERS</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </span>
-                    </div>
-                  </Link>
+                    id={manga.id}
+                    title={manga.title}
+                    coverUrl={manga.coverUrl}
+                    status={manga.status}
+                    genres={manga.tags}
+                    latestChapter={(manga as any).totalChapters ? `CH. ${(manga as any).totalChapters}` : undefined}
+                  />
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-ashram-muted font-mono text-xs">
-                No matching series found for this query in the selected engine. Try "All Sources Unified" or check the title spelling.
-              </div>
+              <p className="text-xs text-slate-500 text-center py-6">
+                No titles matched this engine query. Try another keyword or switch source.
+              </p>
             )}
           </div>
         )}
       </section>
 
-      {/* Core Built-in Engines Deck */}
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-sindoor" />
-          <h2 className="font-hud uppercase text-lg font-bold text-ashram tracking-wider">
-            INTEGRATED READING ENGINES
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {CORE_ENGINES.map((engine) => (
-            <YantraCard
-              key={engine.name}
-              glowColor="sindoor"
-              className="p-5 bg-sanctum/90 border border-sanctum-border hover:border-sindoor/60 transition-all"
-            >
-              <div className="flex flex-col justify-between h-full space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Cpu className="w-5 h-5 text-sindoor" />
-                      <h3 className="font-hud font-bold text-base text-ashram">
-                        {engine.name}
-                      </h3>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-prana/20 text-prana border border-prana/40 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-prana" />
-                      {engine.status}
-                    </span>
-                  </div>
-
-                  <p className="font-hud text-xs text-ashram-muted leading-relaxed">
-                    {engine.description}
-                  </p>
-
-                  <div className="font-mono text-[10px] text-ashram-muted/80">
-                    Category: <span className="text-gada-bright">{engine.category}</span>
-                  </div>
-                </div>
-
-                <div className="pt-3 border-t border-sanctum-border/60 flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-prana">
-                    NATIVE WEB STREAM // NO APK NEEDED
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedEngine(engine.id);
-                      window.scrollTo({ top: 120, behavior: "smooth" });
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-sindoor hover:bg-sindoor-glow text-white font-hud font-bold uppercase text-xs rounded transition-all shadow-sindoor-neon"
-                  >
-                    <span>SEARCH THIS ENGINE</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </YantraCard>
-          ))}
-        </div>
-      </section>
-
-      {/* Keiyoushi Extended Catalog */}
-      <section className="space-y-4 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-sanctum-border">
-          <div className="space-y-0.5">
-            <h2 className="font-hud uppercase text-lg font-bold text-ashram tracking-wider">
-              EXTENDED MIHON / KEIYOUSHI INDEX ({catalog.length} SOURCES)
+      {/* 3. Official Mangayomi Extension Store (360+ Sources) */}
+      <section className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#20273a]">
+          <div>
+            <h2 className="font-sans text-xl font-bold text-white flex items-center gap-2">
+              <Globe className="w-5 h-5 text-indigo-400" />
+              Mangayomi Extensions Catalog ({catalog.length} Sources)
             </h2>
-            <p className="font-mono text-xs text-ashram-muted">
-              Discover extensions and search across all supported sources directly in the reader.
+            <p className="font-sans text-xs text-slate-400 mt-1">
+              Live directory synchronized from the official GitHub Mangayomi index
             </p>
           </div>
 
-          {/* Search Box */}
+          {/* Catalog Search */}
           <div className="relative w-full sm:w-72">
             <input
               type="text"
               value={catalogSearch}
               onChange={(e) => setCatalogSearch(e.target.value)}
-              placeholder="FILTER EXTENSION CATALOG..."
-              className="w-full bg-void border border-sanctum-border text-xs font-mono text-ashram rounded px-3 py-2 pl-9 outline-none focus:border-gada"
+              placeholder="Filter 360+ extensions..."
+              className="w-full bg-[#121622] border border-[#23293e] text-xs font-sans text-slate-100 rounded-xl px-4 py-2 pl-9 outline-none focus:border-indigo-500 transition-colors"
             />
-            <Search className="w-3.5 h-3.5 text-ashram-muted absolute left-3 top-2.5 pointer-events-none" />
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5 pointer-events-none" />
           </div>
         </div>
 
+        {/* Language Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+          {LANG_TABS.map((tab) => {
+            const active = activeLang === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveLang(tab.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium whitespace-nowrap transition-all ${
+                  active
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                    : "bg-[#121622] border border-[#23293e] text-slate-400 hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Catalog Grid */}
         {loadingCatalog ? (
           <div className="py-20">
             <CyberGadaLoader
               size="md"
-              text="ॐ CONNECTING TO DECENTRALIZED CATALOG..."
-              subtext="SYNCHRONIZING REPOSITORIES"
+              text="Loading Mangayomi Extension Directory..."
+              subtext="Fetching 360+ extension repositories"
             />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredExtensions.slice(0, 36).map((ext) => (
-              <YantraCard
-                key={ext.pkg}
-                glowColor="gada"
-                className="p-4 bg-sanctum/85 hover:border-gada/50 transition-all flex flex-col justify-between"
+        ) : filteredExtensions.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {filteredExtensions.map((ext) => (
+              <div
+                key={ext.id}
+                className="p-4 rounded-xl bg-[#121622] border border-[#23293e] hover:border-indigo-500/40 flex flex-col justify-between space-y-3 transition-all duration-300 shadow-md group"
               >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-hud font-bold text-sm text-ashram">
-                        {ext.name}
-                      </h3>
-                      <div className="font-mono text-[10px] text-ashram-muted truncate">
-                        {ext.sources.map((s) => s.name).join(", ") || "General Manga"}
-                      </div>
+                <div className="flex items-start gap-3">
+                  {/* Extension Icon */}
+                  <div className="w-10 h-10 rounded-lg bg-[#0b0e14] border border-[#23293e] overflow-hidden flex-shrink-0 flex items-center justify-center">
+                    {ext.iconUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={`/api/proxy/image?url=${encodeURIComponent(ext.iconUrl)}`}
+                        alt={ext.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <BookOpen className="w-5 h-5 text-indigo-400" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-sans font-bold text-sm text-slate-100 truncate group-hover:text-indigo-400 transition-colors">
+                      {ext.name}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-[#0b0e14] text-indigo-400 border border-[#23293e]">
+                        {ext.lang.toUpperCase()}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-500">
+                        v{ext.version}
+                      </span>
+                      {ext.isNsfw && (
+                        <span className="px-1 py-0.5 rounded text-[9px] font-mono uppercase bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                          18+
+                        </span>
+                      )}
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-gada/20 text-gada-bright border border-gada/40">
-                      {ext.lang}
-                    </span>
                   </div>
                 </div>
 
-                <div className="pt-3 mt-3 border-t border-sanctum-border/60 flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-prana">
-                    NATIVE IN-APP
+                <div className="pt-2 border-t border-[#1e2538] flex items-center justify-between text-xs">
+                  <span className="font-mono text-[10px] text-slate-500 uppercase">
+                    TYPE: {ext.typeSource}
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setConsoleQuery(ext.name.replace(/Extension|Manga|Source/gi, "").trim());
-                      setSelectedEngine("all");
-                      window.scrollTo({ top: 120, behavior: "smooth" });
-                      handleConsoleSearch();
-                    }}
-                    className="px-3 py-1 bg-gada/20 text-gada-bright hover:bg-gada hover:text-void font-hud text-[11px] font-bold uppercase rounded transition-all shadow-gada-gold flex items-center gap-1"
-                  >
-                    <span>SEARCH MANGA</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {ext.sourceCodeUrl && (
+                      <a
+                        href={ext.sourceCodeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="View Dart Source on GitHub"
+                        className="text-slate-500 hover:text-slate-300 transition-colors p-1"
+                      >
+                        <Code2 className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    <Link
+                      href={`/explore?q=${encodeURIComponent(ext.name.split(" ")[0])}`}
+                      className="text-xs font-sans font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
+                    >
+                      Browse →
+                    </Link>
+                  </div>
                 </div>
-              </YantraCard>
+              </div>
             ))}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-[#121622] rounded-2xl border border-[#23293e]">
+            <p className="text-sm font-sans text-slate-400">
+              No extensions match &quot;{catalogSearch}&quot; for language &quot;{activeLang}&quot;.
+            </p>
           </div>
         )}
       </section>

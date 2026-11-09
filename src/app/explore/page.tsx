@@ -6,7 +6,7 @@ import { searchManga } from "@/lib/api-client";
 import { MangaDexManga } from "@/lib/adapters/mangadex";
 import { MangaCard } from "@/components/hud/MangaCard";
 import { CyberGadaLoader } from "@/components/hud/CyberGadaLoader";
-import { Search, Filter, Compass, Sparkles, Flame, Trophy, Zap } from "lucide-react";
+import { Search, Filter, Compass, Sparkles, Flame, Trophy, Zap, Layers, X } from "lucide-react";
 
 const GENRES = [
   "Action",
@@ -26,7 +26,7 @@ const GENRES = [
 ];
 
 const PRESETS = [
-  { id: "all", label: "All Manga", icon: Sparkles },
+  { id: "all", label: "All Series", icon: Sparkles },
   { id: "manhwa", label: "Manhwa & Webtoons", icon: Compass },
   { id: "trending", label: "Trending", icon: Flame },
   { id: "shonen", label: "Shonen & Action", icon: Zap },
@@ -34,20 +34,21 @@ const PRESETS = [
 ];
 
 const SOURCES = [
-  { id: "all", label: "Unified Codex (All Sources)" },
-  { id: "asura", label: "Asura Scans (Manhwa HD)" },
-  { id: "mangapill", label: "MangaPill Mirror" },
-  { id: "allmanga", label: "AllManga Stream" },
-  { id: "mangadex", label: "MangaDex v5" },
+  { id: "all", label: "All Sources (Unified)" },
+  { id: "asura", label: "Asura Scans (Manhwa)" },
+  { id: "weebcentral", label: "WeebCentral" },
+  { id: "mangapill", label: "MangaPill" },
+  { id: "mangadex", label: "MangaDex" },
 ];
 
 function ExploreContent() {
   const searchParams = useSearchParams();
   const qParam = searchParams.get("q") || "";
   const sourceParam = searchParams.get("source") || "all";
+  const genreParam = searchParams.get("genre") || null;
 
   const [query, setQuery] = useState(qParam);
-  const [selectedGenre, setSelectedGenre] = useState<string | null>(null);
+  const [selectedGenre, setSelectedGenre] = useState<string | null>(genreParam);
   const [selectedPreset, setSelectedPreset] = useState<string>("all");
   const [selectedSource, setSelectedSource] = useState<string>(sourceParam);
   const [results, setResults] = useState<MangaDexManga[]>([]);
@@ -61,7 +62,7 @@ function ExploreContent() {
   ) => {
     setLoading(true);
     let term = q.replace(/[’‘`]/g, "'").trim();
-    if (!term && preset === "manhwa") term = "Solo Leveling Flower Path Tower of God";
+    if (!term && preset === "manhwa") term = "Solo Leveling Swordmaster Tower of God";
     if (!term && preset === "shonen") term = "Shonen Action";
     if (!term && preset === "top") term = "Berserk One Piece";
     if (!term && preset === "trending") term = "Chainsaw Man Jujutsu Kaisen";
@@ -78,8 +79,9 @@ function ExploreContent() {
 
   useEffect(() => {
     setQuery(qParam);
-    executeSearch(qParam, selectedGenre, selectedPreset, sourceParam);
-  }, [qParam, sourceParam]);
+    if (genreParam) setSelectedGenre(genreParam);
+    executeSearch(qParam, genreParam || selectedGenre, selectedPreset, sourceParam);
+  }, [qParam, sourceParam, genreParam]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,48 +96,63 @@ function ExploreContent() {
   const handleGenreToggle = (genre: string) => {
     const next = selectedGenre === genre ? null : genre;
     setSelectedGenre(next);
-    executeSearch(query, next, selectedPreset);
+    executeSearch(query, next, selectedPreset, selectedSource);
   };
 
   return (
     <div className="space-y-8 pb-16">
       {/* Header */}
-      <div className="space-y-2 pb-4 border-b border-sanctum-border">
-        <div className="flex items-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
-          <Compass className="w-4 h-4 text-gada" />
-          VAJRA CODEX ARCHIVE // UNIFIED MANGA SEARCH
+      <div className="space-y-2 pb-4 border-b border-[#20273a]">
+        <div className="flex items-center gap-2 text-indigo-400 font-mono text-xs uppercase tracking-wider font-semibold">
+          <Compass className="w-4 h-4" />
+          Mangayomi Discovery Hub
         </div>
-        <h1 className="font-mythic text-2xl sm:text-4xl font-bold text-ashram">
-          Explore All Manga
+        <h1 className="font-sans text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+          Browse & Discover Manga
         </h1>
-        <p className="font-hud text-sm text-ashram-muted max-w-xl">
-          Search thousands of manga titles with full chapter archives starting from Chapter 1. Read directly inside the app with zero external redirects.
+        <p className="font-sans text-sm text-slate-400 max-w-xl">
+          Search thousands of manga, manhwa, and comics with verified chapter archives starting from Chapter 1. Read directly inside the app with zero ads or external redirects.
         </p>
       </div>
 
-      {/* Search Bar & Filters */}
-      <div className="space-y-4 bg-sanctum/85 p-6 rounded-sm border border-sanctum-border">
+      {/* Search & Filter Controls */}
+      <div className="space-y-5 bg-[#121622] p-5 sm:p-6 rounded-2xl border border-[#23293e] shadow-lg">
+        {/* Search Input Bar */}
         <form onSubmit={handleSearchSubmit} className="relative w-full">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search manga by title (e.g. One Piece, Berserk, Solo Leveling)..."
-            className="w-full bg-void border border-sanctum-border text-sm font-mono text-ashram rounded px-4 py-3 pl-11 pr-24 outline-none focus:border-gada transition-all"
+            placeholder="Search manga by title (e.g. Solo Leveling, One Piece, Berserk)..."
+            className="w-full bg-[#0b0e14] border border-[#23293e] text-sm font-sans text-slate-100 rounded-xl px-4 py-3 pl-11 pr-28 outline-none focus:border-indigo-500 transition-all placeholder:text-slate-500"
           />
-          <Search className="w-5 h-5 text-ashram-muted absolute left-3.5 top-3.5 pointer-events-none" />
+          <Search className="w-5 h-5 text-slate-500 absolute left-3.5 top-3.5 pointer-events-none" />
+
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                executeSearch("", selectedGenre, selectedPreset, selectedSource);
+              }}
+              className="absolute right-24 top-3 text-slate-500 hover:text-slate-300 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             type="submit"
-            className="absolute right-2 top-2 px-5 py-2 bg-sindoor hover:bg-sindoor-glow text-white font-hud font-bold text-xs uppercase tracking-wider rounded transition-all shadow-sindoor-neon"
+            className="absolute right-2 top-2 px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold text-xs rounded-lg transition-all shadow-md shadow-indigo-600/20"
           >
-            SEARCH
+            Search
           </button>
         </form>
 
-        {/* Category Preset Tabs */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sanctum-border/60">
-          <span className="font-mono text-xs text-ashram-muted uppercase mr-1">
-            CATEGORY:
+        {/* Category Presets */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#1e2538]">
+          <span className="font-sans text-xs text-slate-400 font-medium mr-1">
+            Category:
           </span>
           {PRESETS.map((p) => {
             const Icon = p.icon;
@@ -145,10 +162,10 @@ function ExploreContent() {
                 key={p.id}
                 type="button"
                 onClick={() => handlePresetChange(p.id)}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-all ${
                   active
-                    ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-                    : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram"
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                    : "bg-[#0b0e14] border border-[#23293e] text-slate-400 hover:text-white"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -158,10 +175,10 @@ function ExploreContent() {
           })}
         </div>
 
-        {/* Source Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-sanctum-border/60">
-          <span className="font-mono text-xs text-ashram-muted uppercase mr-1">
-            SOURCE:
+        {/* Source Switcher */}
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#1e2538]">
+          <span className="font-sans text-xs text-slate-400 font-medium mr-1">
+            Source:
           </span>
           {SOURCES.map((s) => {
             const active = selectedSource === s.id;
@@ -173,10 +190,10 @@ function ExploreContent() {
                   setSelectedSource(s.id);
                   executeSearch(query, selectedGenre, selectedPreset, s.id);
                 }}
-                className={`px-3 py-1 rounded text-xs font-mono font-bold uppercase transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-all ${
                   active
-                    ? "bg-prana text-void shadow-prana-cyan font-bold"
-                    : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram"
+                    ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/50 font-semibold"
+                    : "bg-[#0b0e14] border border-[#23293e] text-slate-400 hover:text-white"
                 }`}
               >
                 {s.label}
@@ -185,23 +202,31 @@ function ExploreContent() {
           })}
         </div>
 
-        {/* Genre Filter Chips */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-ashram-muted uppercase">
-            <Filter className="w-3.5 h-3.5 text-gada" />
-            <span>Filter By Genre:</span>
+        {/* Genre Filters */}
+        <div className="space-y-2 pt-2 border-t border-[#1e2538]">
+          <div className="flex items-center gap-2 text-xs font-sans text-slate-400 font-medium">
+            <Filter className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Filter by Genre:</span>
+            {selectedGenre && (
+              <button
+                onClick={() => handleGenreToggle(selectedGenre)}
+                className="ml-auto text-[11px] text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                Clear filter ({selectedGenre})
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {GENRES.map((g) => {
               const active = selectedGenre === g;
               return (
                 <button
                   key={g}
                   onClick={() => handleGenreToggle(g)}
-                  className={`px-3 py-1 rounded text-xs font-hud font-semibold uppercase tracking-wider transition-all ${
+                  className={`px-3 py-1 rounded-lg text-xs font-sans font-medium transition-all ${
                     active
-                      ? "bg-gada text-void font-bold shadow-gada-gold border border-gada-bright"
-                      : "bg-void border border-sanctum-border text-ashram-muted hover:text-ashram hover:border-sanctum-border"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-semibold"
+                      : "bg-[#0b0e14] border border-[#23293e] text-slate-400 hover:text-white hover:border-slate-600"
                   }`}
                 >
                   {g}
@@ -214,17 +239,17 @@ function ExploreContent() {
 
       {/* Results Section */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between text-xs font-mono text-ashram-muted">
-          <span>RESULTS: {results.length} TITLES FOUND</span>
-          <span className="text-gada-bright">VAJRA UNIFIED ARCHIVE // 100% READABLE</span>
+        <div className="flex items-center justify-between text-xs font-sans text-slate-400">
+          <span>{results.length} series found</span>
+          <span className="text-indigo-400 font-mono">100% IN-APP STREAM</span>
         </div>
 
         {loading ? (
-          <div className="py-20">
+          <div className="py-24">
             <CyberGadaLoader
               size="md"
-              text="ॐ SEARCHING MANGA ARCHIVES..."
-              subtext="GATHERING VERIFIED CHAPTER STREAMS"
+              text="Searching manga archives..."
+              subtext="Querying active repositories"
             />
           </div>
         ) : results.length > 0 ? (
@@ -243,13 +268,13 @@ function ExploreContent() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 bg-sanctum/60 rounded border border-sanctum-border">
-            <Sparkles className="w-8 h-8 text-gada mx-auto mb-2 opacity-50" />
-            <h3 className="font-hud uppercase text-lg text-ashram font-bold">
+          <div className="text-center py-20 bg-[#121622] rounded-2xl border border-[#23293e] p-8">
+            <Layers className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <h3 className="font-sans text-lg text-white font-bold">
               No Manga Found
             </h3>
-            <p className="font-mono text-xs text-ashram-muted mt-1">
-              Try a different search title or clear active genre filters.
+            <p className="font-sans text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              We couldn&apos;t find any titles matching your query. Try searching for a broader term or resetting active genre filters.
             </p>
           </div>
         )}
@@ -262,11 +287,11 @@ export default function ExplorePage() {
   return (
     <Suspense
       fallback={
-        <div className="py-20">
+        <div className="py-24">
           <CyberGadaLoader
             size="md"
-            text="ॐ INITIALIZING EXPLORE MATRIX..."
-            subtext="CONNECTING TO SACRED CODEX"
+            text="Initializing browse catalog..."
+            subtext="Connecting to repository feed"
           />
         </div>
       }

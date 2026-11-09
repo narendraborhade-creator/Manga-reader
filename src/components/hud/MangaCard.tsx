@@ -25,6 +25,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   score,
   genres = [],
   latestChapter,
+  source,
 }) => {
   const [bookmarked, setBookmarked] = useState<boolean>(() => isBookmarked(id));
   const [imgError, setImgError] = useState(false);
@@ -48,32 +49,24 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     if (!coverUrl || coverUrl === "/placeholder-manga.jpg" || coverUrl === "/placeholder-manga.png") {
       return null;
     }
-    // AniList CDN is globally open without ISP blocking
-    if (
-      coverUrl.includes("anilist.co") ||
-      coverUrl.includes("s4.anilist.co")
-    ) {
+    // AniList CDN
+    if (coverUrl.includes("anilist.co") || coverUrl.includes("s4.anilist.co")) {
       return coverUrl;
     }
-    // MangaDex, MangaPill, AllManga, Asura etc. are routed through our proxy with curl unblocker
+    // Route through image proxy
     if (coverUrl.startsWith("http")) {
       return `/api/proxy/image?url=${encodeURIComponent(coverUrl)}`;
     }
     return coverUrl;
   })();
 
-  const targetHref = id.startsWith("anilist-")
-    ? `/explore?q=${encodeURIComponent(title)}`
-    : `/manga/${id}`;
+  const targetHref = `/manga/${id}`;
 
   return (
     <Link href={targetHref} className="group block focus:outline-none">
-      <YantraCard
-        glowColor="gada"
-        className="h-full flex flex-col bg-sanctum/90 hover:border-gada/50 transition-all duration-300"
-      >
+      <YantraCard className="h-full flex flex-col bg-[#121622] border border-[#23293e] hover:border-indigo-500/50 transition-all duration-300">
         {/* Cover Art Container */}
-        <div className="relative aspect-[3/4] w-full overflow-hidden bg-void flex items-center justify-center">
+        <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0e121a] flex items-center justify-center">
           {resolvedCoverSrc ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
@@ -85,55 +78,55 @@ export const MangaCard: React.FC<MangaCardProps> = ({
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            /* Stylized Hanuman Mythic Fallback */
-            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-sanctum/95 border border-gada/30">
-              <span className="font-mythic text-3xl text-gada-bright mb-1 animate-pulse">
-                ॐ
-              </span>
-              <span className="font-hud text-xs font-bold text-ashram line-clamp-2 px-1">
+            /* Sleek Modern Gradient Cover Fallback */
+            <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-gradient-to-br from-[#161c2e] to-[#0d1017] border border-[#282f45]">
+              <div className="w-10 h-10 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mb-2">
+                <BookOpen className="w-5 h-5 text-indigo-400" />
+              </div>
+              <span className="font-sans text-xs font-semibold text-slate-200 line-clamp-2 px-1">
                 {title}
               </span>
-              <span className="font-mono text-[9px] text-prana mt-2 tracking-widest uppercase">
-                VAJRA CODEX
+              <span className="font-mono text-[9px] text-indigo-400/80 mt-2 tracking-wider uppercase">
+                {source || "MANGAYOMI"}
               </span>
             </div>
           )}
 
-          {/* Vignette Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-sanctum via-transparent to-black/30 pointer-events-none" />
+          {/* Subtle Vignette Gradient */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#121622] via-transparent to-black/40 pointer-events-none" />
 
           {/* Top Badges */}
-          <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
+          <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 z-10">
             {status && (
-              <span className="px-1.5 py-0.5 text-[9px] font-mono uppercase font-bold tracking-widest bg-void/80 text-prana border border-prana/40 rounded-sm">
+              <span className="px-2 py-0.5 text-[10px] font-mono uppercase font-semibold tracking-wider bg-black/70 backdrop-blur-md text-emerald-400 border border-emerald-500/30 rounded-md">
                 {status}
               </span>
             )}
             {score && (
-              <span className="flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-mono font-bold bg-void/80 text-gada-bright border border-gada/40 rounded-sm">
+              <span className="flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-mono font-semibold bg-black/70 backdrop-blur-md text-amber-300 border border-amber-500/30 rounded-md">
                 <Star className="w-2.5 h-2.5 fill-current" />
                 {score}%
               </span>
             )}
           </div>
 
-          {/* Bookmark Button */}
+          {/* 1-Click Bookmark Button */}
           <button
             onClick={handleBookmarkClick}
             aria-label="Bookmark Manga"
-            className={`absolute top-2 right-2 p-1.5 rounded-sm transition-all z-20 ${
+            className={`absolute top-2.5 right-2.5 p-1.5 rounded-md backdrop-blur-md transition-all z-20 ${
               bookmarked
-                ? "bg-sindoor text-white shadow-sindoor-neon"
-                : "bg-void/70 text-ashram-muted hover:text-gada hover:bg-void"
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                : "bg-black/60 text-slate-400 hover:text-white hover:bg-black/90"
             }`}
           >
             <BookmarkIcon className={`w-3.5 h-3.5 ${bookmarked ? "fill-current" : ""}`} />
           </button>
 
-          {/* Latest Chapter Pill (if present) */}
+          {/* Latest Chapter Pill */}
           {latestChapter !== undefined && (
-            <div className="absolute bottom-2 left-2 z-10">
-              <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-sindoor/90 text-white font-semibold rounded-sm shadow-sindoor-neon">
+            <div className="absolute bottom-2.5 left-2.5 z-10">
+              <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono bg-indigo-600/90 backdrop-blur-md text-white font-medium rounded-md shadow-sm">
                 <BookOpen className="w-2.5 h-2.5" />
                 CH. {latestChapter}
               </span>
@@ -141,28 +134,28 @@ export const MangaCard: React.FC<MangaCardProps> = ({
           )}
         </div>
 
-        {/* Info Content */}
-        <div className="p-3 flex-1 flex flex-col justify-between space-y-2">
+        {/* Details Section */}
+        <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
           <div>
             <h3
               title={title}
-              className="font-hud font-bold text-sm text-ashram group-hover:text-gada-bright transition-colors line-clamp-2 leading-snug tracking-wide"
+              className="font-sans font-semibold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors line-clamp-2 leading-snug"
             >
               {title}
             </h3>
             {genres.length > 0 && (
-              <p className="font-mono text-[10px] text-ashram-muted/70 line-clamp-1 mt-1">
+              <p className="font-sans text-[11px] text-slate-400 line-clamp-1 mt-1">
                 {genres.slice(0, 3).join(" • ")}
               </p>
             )}
           </div>
 
-          <div className="flex items-center justify-between pt-1 border-t border-sanctum-border/60 text-[10px] font-mono text-ashram-muted">
-            <span className="group-hover:text-gada transition-colors flex items-center gap-1 font-bold text-gada">
-              READ NOW →
+          <div className="flex items-center justify-between pt-2 border-t border-[#20273a] text-[11px] font-sans text-slate-400">
+            <span className="group-hover:text-indigo-400 transition-colors flex items-center gap-1 font-medium text-indigo-400">
+              Read Now →
             </span>
-            <span className="text-ashram-muted/80">
-              {status === "COMPLETED" ? "FULL SERIES" : "LATEST RELEASES"}
+            <span className="text-slate-500 text-[10px] uppercase font-mono">
+              {status === "COMPLETED" ? "Complete" : "Ongoing"}
             </span>
           </div>
         </div>

@@ -3,23 +3,37 @@ import { spawn } from "child_process";
 
 export const dynamic = "force-dynamic";
 
-const FALLBACK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400" fill="#0B0F19">
-  <rect width="100%" height="100%" fill="#080C14"/>
-  <rect x="5" y="5" width="290" height="390" fill="none" stroke="#FF9933" stroke-width="1.5" stroke-dasharray="4 2" opacity="0.4"/>
-  <circle cx="150" cy="180" r="50" fill="#131B2E" stroke="#FF9933" stroke-width="2"/>
-  <text x="150" y="195" font-family="system-ui, sans-serif" font-size="42" font-weight="bold" fill="#FF9933" text-anchor="middle">ॐ</text>
-  <text x="150" y="270" font-family="system-ui, monospace" font-size="14" font-weight="bold" fill="#F5F5F0" text-anchor="middle" letter-spacing="2">VAJRA ARCHIVE</text>
-  <text x="150" y="295" font-family="system-ui, monospace" font-size="10" fill="#00FFA3" text-anchor="middle" letter-spacing="1">SACRED MANGA STREAM</text>
+function generateFallbackSvg(title = "Manga Stream"): string {
+  const cleanTitle = title.replace(/[<>&"]/g, "").slice(0, 32);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600" fill="#0B0E14">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#161c2e" />
+      <stop offset="100%" stop-color="#0b0e14" />
+    </linearGradient>
+    <linearGradient id="indigo" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="100%" stop-color="#4F46E5" />
+    </linearGradient>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#grad)"/>
+  <rect x="8" y="8" width="384" height="584" rx="16" fill="none" stroke="#23293e" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <circle cx="200" cy="250" r="50" fill="#121622" stroke="#6366F1" stroke-width="2"/>
+  <path d="M185 235 h30 v30 h-30 z M180 235 l20 -15 l20 15" fill="none" stroke="#6366F1" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="200" y="340" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="700" fill="#F8FAFC" text-anchor="middle">${cleanTitle}</text>
+  <text x="200" y="370" font-family="monospace" font-size="11" font-weight="600" fill="#818CF8" text-anchor="middle" letter-spacing="2">MANGAYOMI ARCHIVE</text>
+  <text x="200" y="395" font-family="system-ui, sans-serif" font-size="10" fill="#64748B" text-anchor="middle">STREAM VERIFIED</text>
 </svg>`;
+}
 
 const imageCache = new Map<string, { buffer: Buffer; contentType: string; time: number }>();
-const MAX_CACHE_SIZE = 400;
+const MAX_CACHE_SIZE = 500;
 
 function getCached(key: string) {
   const item = imageCache.get(key);
   if (!item) return null;
-  // Cache for 6 hours
-  if (Date.now() - item.time > 6 * 3600 * 1000) {
+  // Cache for 12 hours
+  if (Date.now() - item.time > 12 * 3600 * 1000) {
     imageCache.delete(key);
     return null;
   }
@@ -37,30 +51,32 @@ function setCached(key: string, val: { buffer: Buffer; contentType: string }) {
 function isValidImageBuffer(buffer: Buffer): { isValid: boolean; contentType: string } {
   if (!buffer || buffer.length < 8) return { isValid: false, contentType: "" };
 
-  const strStart = buffer.slice(0, 40).toString("utf-8").trimStart().toLowerCase();
+  const strStart = buffer.slice(0, 50).toString("utf-8").trimStart().toLowerCase();
   if (
     strStart.startsWith("<") ||
     strStart.startsWith("<!--") ||
     strStart.startsWith("<!doctype") ||
     strStart.includes("<html") ||
-    strStart.includes("<script")
+    strStart.includes("<script") ||
+    strStart.includes("cf-challenge") ||
+    strStart.includes("ddos")
   ) {
     return { isValid: false, contentType: "" };
   }
 
-  // PNG
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
     return { isValid: true, contentType: "image/png" };
   }
-  // JPEG
+  // JPEG: FF D8 FF
   if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
     return { isValid: true, contentType: "image/jpeg" };
   }
-  // WebP (RIFF .... WEBP)
+  // WebP: RIFF .... WEBP
   if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
     return { isValid: true, contentType: "image/webp" };
   }
-  // GIF
+  // GIF: GIF87a or GIF89a
   if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
     return { isValid: true, contentType: "image/gif" };
   }
@@ -77,9 +93,19 @@ function fetchWithCurl(
   referer?: string
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
   return new Promise((resolve) => {
-    const args = ["-s", "-L", "--max-time", "8"];
-    if (referer) {
-      args.push("-e", referer);
+    const args = ["-s", "-L", "--max-time", "10", "-A", "MangayomiWeb/1.0 (https://github.com/kodjodevf/mangayomi)"];
+    
+    let effectiveReferer = referer;
+    if (!effectiveReferer) {
+      if (url.includes("mangadex")) effectiveReferer = "https://mangadex.org/";
+      else if (url.includes("weebcentral")) effectiveReferer = "https://weebcentral.com/";
+      else if (url.includes("mangapill")) effectiveReferer = "https://mangapill.com/";
+      else if (url.includes("asura")) effectiveReferer = "https://asurascans.com/";
+      else if (url.includes("allanime") || url.includes("allmanga")) effectiveReferer = "https://allmanga.to/";
+    }
+
+    if (effectiveReferer) {
+      args.push("-e", effectiveReferer);
     }
     args.push(url);
 
@@ -105,15 +131,16 @@ function fetchWithCurl(
 
 export async function GET(req: NextRequest) {
   const targetUrl = req.nextUrl.searchParams.get("url");
+  const refererParam = req.nextUrl.searchParams.get("referer");
 
-  if (!targetUrl) {
-    return new NextResponse(FALLBACK_SVG, {
+  if (!targetUrl || !targetUrl.startsWith("http")) {
+    return new NextResponse(generateFallbackSvg(), {
       status: 200,
-      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+      headers: { "Content-Type": "image/svg+xml" },
     });
   }
 
-  // Check in-memory cache first for instant 1ms response
+  // Fast Memory Cache Check
   const cached = getCached(targetUrl);
   if (cached) {
     return new NextResponse(new Uint8Array(cached.buffer), {
@@ -126,42 +153,28 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Determine optimal Referer and User-Agent based on target host
-  let referer: string | undefined = req.nextUrl.searchParams.get("referer") || undefined;
-  let userAgent =
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  // Determine effective Referer and User-Agent
+  let referer = refererParam || "";
+  let userAgent = "MangayomiWeb/1.0 (https://github.com/kodjodevf/mangayomi)";
 
-  if (targetUrl.includes("planeptune.us")) {
-    referer = referer || "https://mangasee123.com/";
-  } else if (targetUrl.includes("compsci88.com") || targetUrl.includes("weebcentral.com")) {
-    referer = referer || "https://weebcentral.com/";
-  } else if (targetUrl.includes("readdetectiveconan.com") || targetUrl.includes("mangapill.com")) {
-    referer = referer || "https://mangapill.com/";
-  } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
-    referer = referer || "https://allmanga.to/";
-  } else if (targetUrl.includes("asurascans.com") || targetUrl.includes("asuracomic.net")) {
-    referer = referer || "https://asurascans.com/";
-  } else if (targetUrl.includes("mangadex")) {
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
-    referer = undefined;
-  }
-
-  // For MangaDex, Node fetch() gets 403 or times out in India; use curl.exe immediately
   if (targetUrl.includes("mangadex")) {
-    const curlResult = await fetchWithCurl(targetUrl, referer);
-    if (curlResult && curlResult.buffer.length > 0) {
-      setCached(targetUrl, curlResult);
-      return new NextResponse(new Uint8Array(curlResult.buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": curlResult.contentType,
-          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
+    referer = "https://mangadex.org/";
+    userAgent = "MangayomiWeb/1.0";
+  } else if (targetUrl.includes("weebcentral")) {
+    referer = "https://weebcentral.com/";
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  } else if (targetUrl.includes("mangapill")) {
+    referer = "https://mangapill.com/";
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  } else if (targetUrl.includes("allanime") || targetUrl.includes("allmanga")) {
+    referer = "https://allmanga.to/";
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  } else if (targetUrl.includes("asura")) {
+    referer = "https://asurascans.com/";
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
   }
 
+  // 1. Try standard high-speed Node fetch
   try {
     const headers: Record<string, string> = {
       "User-Agent": userAgent,
@@ -173,7 +186,7 @@ export async function GET(req: NextRequest) {
 
     const upstream = await fetch(targetUrl, {
       headers,
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(6000),
     });
 
     if (upstream.ok && upstream.body) {
@@ -195,44 +208,29 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+  } catch {}
 
-    // Upstream failed or returned bot challenge (403) -> Fallback to curl
-    const curlResult = await fetchWithCurl(targetUrl, referer);
-    if (curlResult && curlResult.buffer.length > 0) {
-      setCached(targetUrl, curlResult);
-      return new NextResponse(new Uint8Array(curlResult.buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": curlResult.contentType,
-          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
-    // Both failed -> return beautiful fallback SVG
-    return new NextResponse(FALLBACK_SVG, {
+  // 2. Upstream fetch failed or bot-blocked -> Try curl
+  const curlResult = await fetchWithCurl(targetUrl, referer);
+  if (curlResult && curlResult.buffer.length > 0) {
+    setCached(targetUrl, curlResult);
+    return new NextResponse(new Uint8Array(curlResult.buffer), {
       status: 200,
-      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
-    });
-  } catch {
-    // If fetch threw (e.g. timeout or socket drop), try curl
-    const curlResult = await fetchWithCurl(targetUrl, referer);
-    if (curlResult && curlResult.buffer.length > 0) {
-      setCached(targetUrl, curlResult);
-      return new NextResponse(new Uint8Array(curlResult.buffer), {
-        status: 200,
-        headers: {
-          "Content-Type": curlResult.contentType,
-          "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
-          "Access-Control-Allow-Origin": "*",
-        },
-      });
-    }
-
-    return new NextResponse(FALLBACK_SVG, {
-      status: 200,
-      headers: { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" },
+      headers: {
+        "Content-Type": curlResult.contentType,
+        "Cache-Control": "public, max-age=86400, s-maxage=86400, immutable",
+        "Access-Control-Allow-Origin": "*",
+      },
     });
   }
+
+  // 3. Fallback to clean Mangayomi SVG card
+  return new NextResponse(generateFallbackSvg(), {
+    status: 200,
+    headers: {
+      "Content-Type": "image/svg+xml",
+      "Cache-Control": "public, max-age=3600",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
 }

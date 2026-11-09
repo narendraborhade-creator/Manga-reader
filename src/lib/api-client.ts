@@ -1,6 +1,8 @@
 import { NormalizedChapter, MangaDexManga, ChapterPagesResult } from "./adapters/mangadex";
 import { ChapterGroup } from "./aggregator";
-import { KeiyoushiExtension } from "./adapters/keiyoushi-parser";
+import { MangayomiExtension } from "./adapters/mangayomi";
+
+export type { MangayomiExtension };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -89,7 +91,7 @@ export async function searchManga(
   }
 }
 
-export async function getExtensionsCatalog(): Promise<KeiyoushiExtension[]> {
+export async function getExtensionsCatalog(): Promise<MangayomiExtension[]> {
   try {
     const res = await fetch(`${API_BASE}/api/extensions`);
     if (!res.ok) throw new Error("Failed to fetch extensions");

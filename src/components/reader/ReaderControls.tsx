@@ -13,6 +13,7 @@ import {
   HelpCircle,
   BookOpen,
   Layers,
+  X,
 } from "lucide-react";
 
 export type ReadingMode = "webtoon" | "rtl" | "ltr" | "double";
@@ -64,7 +65,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
 
   return (
     <>
-      {/* Top Floating Cyber HUD Bar */}
+      {/* Top Floating Reader Bar */}
       <div
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           hudVisible
@@ -72,22 +73,22 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
             : "-translate-y-full opacity-0 pointer-events-none"
         }`}
       >
-        <div className="bg-void/90 backdrop-blur-md border-b border-sanctum-border px-4 py-3 shadow-hud-glow">
+        <div className="bg-[#121622]/95 backdrop-blur-md border-b border-[#23293e] px-4 py-3 shadow-xl">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
             {/* Back button & Title */}
             <div className="flex items-center gap-3">
               <Link
                 href={`/manga/${mangaId}`}
-                className="p-2 rounded bg-sanctum border border-sanctum-border hover:border-gada text-ashram hover:text-gada transition-all"
-                title="Return to Manga Codex"
+                className="p-2 rounded-xl bg-[#0b0e14] border border-[#23293e] hover:border-indigo-500 text-slate-300 hover:text-white transition-all"
+                title="Return to Manga Details"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Link>
               <div>
-                <h2 className="font-hud text-sm md:text-base font-bold text-ashram tracking-wide line-clamp-1">
+                <h2 className="font-sans text-sm md:text-base font-bold text-white line-clamp-1">
                   {mangaTitle}
                 </h2>
-                <div className="font-mono text-xs text-gada tracking-wider">
+                <div className="font-sans text-xs text-indigo-400 font-medium">
                   {chapterTitle}
                 </div>
               </div>
@@ -100,17 +101,21 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                 onClick={() =>
                   onQualityChange(quality === "data" ? "data-saver" : "data")
                 }
-                className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-mono font-bold bg-sanctum border border-sanctum-border text-ashram hover:border-prana transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium bg-[#0b0e14] border border-[#23293e] text-slate-300 hover:border-indigo-500 transition-colors"
                 title="Switch Image Resolution"
               >
-                <Sliders className="w-3.5 h-3.5 text-prana" />
-                <span>{quality === "data" ? "HD (DATA)" : "SAVER"}</span>
+                <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{quality === "data" ? "HD" : "Saver"}</span>
               </button>
 
               {/* Settings Toggle */}
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="p-2 rounded bg-sanctum border border-sanctum-border hover:border-gada text-ashram hover:text-gada transition-colors"
+                className={`p-2 rounded-lg border transition-colors ${
+                  showSettings
+                    ? "bg-indigo-600 text-white border-indigo-500"
+                    : "bg-[#0b0e14] border-[#23293e] text-slate-300 hover:text-white hover:border-indigo-500"
+                }`}
                 title="Reader Settings"
               >
                 <Settings className="w-4 h-4" />
@@ -119,7 +124,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
               {/* Shortcuts Help */}
               <button
                 onClick={() => setShowShortcuts(!showShortcuts)}
-                className="hidden sm:block p-2 rounded bg-sanctum border border-sanctum-border hover:border-gada text-ashram hover:text-gada transition-colors"
+                className="hidden sm:block p-2 rounded-lg bg-[#0b0e14] border border-[#23293e] text-slate-400 hover:text-white hover:border-slate-600 transition-colors"
                 title="Keyboard Shortcuts"
               >
                 <HelpCircle className="w-4 h-4" />
@@ -128,7 +133,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
               {/* Fullscreen Button */}
               <button
                 onClick={toggleFullscreen}
-                className="p-2 rounded bg-sanctum border border-sanctum-border hover:border-gada text-ashram hover:text-gada transition-colors"
+                className="p-2 rounded-lg bg-[#0b0e14] border border-[#23293e] text-slate-300 hover:text-white hover:border-slate-600 transition-colors"
                 title="Toggle Fullscreen (F)"
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -139,26 +144,25 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
 
         {/* Settings Drawer */}
         {showSettings && (
-          <div className="bg-sanctum/95 backdrop-blur-lg border-b border-sanctum-border px-6 py-4 shadow-xl">
-            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs font-hud uppercase">
-              <div className="flex items-center gap-2">
-                <span className="text-gada font-bold tracking-wider">// READING MODE:</span>
-                <div className="flex gap-1">
+          <div className="bg-[#0e121a]/95 backdrop-blur-xl border-b border-[#23293e] px-6 py-4 shadow-2xl">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 text-xs font-sans">
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider">Reading Mode:</span>
+                <div className="flex gap-1.5">
                   {(
                     [
-                      { mode: "webtoon", label: "Long-Strip" },
+                      { mode: "webtoon", label: "Webtoon (Vertical)" },
                       { mode: "rtl", label: "Manga (RTL)" },
                       { mode: "ltr", label: "Paged (LTR)" },
-                      { mode: "double", label: "Double Spread" },
                     ] as const
                   ).map((m) => (
                     <button
                       key={m.mode}
                       onClick={() => onModeChange(m.mode)}
-                      className={`px-3 py-1.5 rounded font-mono text-[11px] font-semibold transition-all ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-sans font-medium transition-all ${
                         readingMode === m.mode
-                          ? "bg-sindoor text-white shadow-sindoor-neon border border-sindoor-glow"
-                          : "bg-void/80 text-ashram-muted hover:text-ashram border border-sanctum-border"
+                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-semibold"
+                          : "bg-[#161c2e] text-slate-400 hover:text-white border border-[#23293e]"
                       }`}
                     >
                       {m.label}
@@ -167,27 +171,27 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="text-gada font-bold tracking-wider">// QUALITY ENGINE:</span>
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400 font-semibold uppercase tracking-wider">Quality:</span>
                 <button
                   onClick={() => onQualityChange("data")}
-                  className={`px-2.5 py-1 rounded font-mono text-[11px] ${
+                  className={`px-3 py-1.5 rounded-lg font-sans text-xs transition-colors ${
                     quality === "data"
-                      ? "bg-gada text-void font-bold"
-                      : "bg-void border border-sanctum-border text-ashram-muted"
+                      ? "bg-indigo-600 text-white font-semibold"
+                      : "bg-[#161c2e] border border-[#23293e] text-slate-400 hover:text-white"
                   }`}
                 >
-                  ORIGINAL HD
+                  Original HD
                 </button>
                 <button
                   onClick={() => onQualityChange("data-saver")}
-                  className={`px-2.5 py-1 rounded font-mono text-[11px] ${
+                  className={`px-3 py-1.5 rounded-lg font-sans text-xs transition-colors ${
                     quality === "data-saver"
-                      ? "bg-gada text-void font-bold"
-                      : "bg-void border border-sanctum-border text-ashram-muted"
+                      ? "bg-indigo-600 text-white font-semibold"
+                      : "bg-[#161c2e] border border-[#23293e] text-slate-400 hover:text-white"
                   }`}
                 >
-                  DATA SAVER (WEBP)
+                  Data Saver (WebP)
                 </button>
               </div>
             </div>
@@ -195,7 +199,7 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
         )}
       </div>
 
-      {/* Bottom Floating Cyber-Mandala Bar */}
+      {/* Bottom Floating Control Bar */}
       <div
         className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 w-[94%] max-w-2xl ${
           hudVisible
@@ -203,40 +207,40 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
             : "translate-y-16 opacity-0 pointer-events-none"
         }`}
       >
-        <div className="bg-sanctum/90 backdrop-blur-xl border border-gada/40 shadow-gada-gold rounded-full px-4 py-2 flex items-center justify-between gap-3">
-          {/* Chapter Prev / Next Nav */}
-          <div className="flex items-center gap-1">
+        <div className="bg-[#121622]/95 backdrop-blur-xl border border-[#23293e] shadow-2xl rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3">
+          {/* Chapter Prev Nav */}
+          <div className="flex items-center gap-1.5">
             {prevChapterId ? (
               <Link
                 href={`/read/${prevChapterId}`}
-                className="p-1.5 rounded-full bg-void/80 hover:bg-sindoor text-ashram hover:text-white transition-all"
+                className="p-1.5 rounded-lg bg-[#0b0e14] hover:bg-indigo-600 text-slate-300 hover:text-white transition-all"
                 title="Previous Chapter"
               >
                 <ChevronLeft className="w-4 h-4" />
               </Link>
             ) : (
-              <span className="p-1.5 opacity-30 cursor-not-allowed">
+              <span className="p-1.5 opacity-30 cursor-not-allowed text-slate-500">
                 <ChevronLeft className="w-4 h-4" />
               </span>
             )}
-            <span className="font-mono text-[10px] text-ashram-muted uppercase hidden sm:inline">
-              CH
+            <span className="font-sans text-[11px] text-slate-400 font-medium hidden sm:inline">
+              Prev
             </span>
           </div>
 
-          {/* Page Scrubber & Selector */}
-          <div className="flex-1 flex items-center gap-2 justify-center">
+          {/* Page Scrubber */}
+          <div className="flex-1 flex items-center gap-3 justify-center">
             <button
               onClick={() => onPageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage <= 1}
-              className="p-1 rounded text-ashram-muted hover:text-gada disabled:opacity-30"
+              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30"
               title="Previous Page"
             >
-              <ChevronLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
-            <span className="font-mono text-xs text-gada-bright font-bold tracking-widest whitespace-nowrap">
-              PAGE {currentPage} / {totalPages || 1}
+            <span className="font-mono text-xs text-indigo-400 font-semibold whitespace-nowrap">
+              Page {currentPage} / {totalPages || 1}
             </span>
 
             {/* Slider Scrubber */}
@@ -247,35 +251,35 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
                 max={totalPages}
                 value={currentPage}
                 onChange={(e) => onPageChange(parseInt(e.target.value, 10))}
-                className="w-24 sm:w-40 accent-sindoor cursor-pointer h-1.5 bg-void rounded-lg"
+                className="w-24 sm:w-44 accent-indigo-500 cursor-pointer h-1.5 bg-[#0b0e14] rounded-lg"
               />
             )}
 
             <button
               onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage >= totalPages}
-              className="p-1 rounded text-ashram-muted hover:text-gada disabled:opacity-30"
+              className="p-1 rounded text-slate-400 hover:text-white disabled:opacity-30"
               title="Next Page"
             >
-              <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           {/* Next Chapter Nav */}
-          <div className="flex items-center gap-1">
-            <span className="font-mono text-[10px] text-ashram-muted uppercase hidden sm:inline">
-              NEXT
+          <div className="flex items-center gap-1.5">
+            <span className="font-sans text-[11px] text-slate-400 font-medium hidden sm:inline">
+              Next
             </span>
             {nextChapterId ? (
               <Link
                 href={`/read/${nextChapterId}`}
-                className="p-1.5 rounded-full bg-void/80 hover:bg-sindoor text-ashram hover:text-white transition-all"
+                className="p-1.5 rounded-lg bg-[#0b0e14] hover:bg-indigo-600 text-slate-300 hover:text-white transition-all"
                 title="Next Chapter"
               >
                 <ChevronRight className="w-4 h-4" />
               </Link>
             ) : (
-              <span className="p-1.5 opacity-30 cursor-not-allowed">
+              <span className="p-1.5 opacity-30 cursor-not-allowed text-slate-500">
                 <ChevronRight className="w-4 h-4" />
               </span>
             )}
@@ -283,12 +287,12 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
         </div>
       </div>
 
-      {/* Floating Mini Toggle Button (when HUD is hidden) */}
+      {/* Floating Toggle Button (when HUD is hidden) */}
       {!hudVisible && (
         <button
           onClick={onToggleHud}
-          className="fixed bottom-4 right-4 z-40 p-2.5 rounded-full bg-sanctum/80 backdrop-blur-md border border-gada/50 text-gada-bright shadow-gada-gold hover:scale-110 transition-transform"
-          title="Open HUD Controls (M)"
+          className="fixed bottom-4 right-4 z-40 p-3 rounded-full bg-[#121622]/90 backdrop-blur-md border border-indigo-500/50 text-indigo-400 shadow-xl hover:scale-110 transition-transform"
+          title="Open Controls (M)"
         >
           <Layers className="w-5 h-5" />
         </button>
@@ -298,45 +302,45 @@ export const ReaderControls: React.FC<ReaderControlsProps> = ({
       {showShortcuts && (
         <div
           onClick={() => setShowShortcuts(false)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-void/80 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-sanctum border border-gada/60 shadow-gada-gold rounded-sm p-6 max-w-md w-full space-y-4 text-ashram"
+            className="bg-[#121622] border border-[#23293e] shadow-2xl rounded-2xl p-6 max-w-md w-full space-y-4 text-slate-200"
           >
-            <div className="flex items-center justify-between pb-2 border-b border-sanctum-border">
-              <h3 className="font-hud uppercase text-lg text-gada font-bold tracking-wider">
-                VAJRA COMMAND MATRIX
+            <div className="flex items-center justify-between pb-3 border-b border-[#23293e]">
+              <h3 className="font-sans text-base text-white font-bold">
+                Keyboard Shortcuts
               </h3>
               <button
                 onClick={() => setShowShortcuts(false)}
-                className="text-ashram-muted hover:text-ashram"
+                className="text-slate-400 hover:text-white p-1"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="space-y-2 font-mono text-xs">
-              <div className="flex justify-between py-1 border-b border-sanctum-border/40">
-                <span className="text-ashram-muted">Previous Page</span>
-                <span className="px-2 py-0.5 bg-void border border-sanctum-border text-gada rounded">
+            <div className="space-y-2.5 font-sans text-xs">
+              <div className="flex justify-between py-1.5 border-b border-[#1e2538]">
+                <span className="text-slate-400">Previous Page</span>
+                <span className="px-2 py-0.5 bg-[#0b0e14] border border-[#23293e] text-indigo-400 rounded-md font-mono">
                   ← / A
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-sanctum-border/40">
-                <span className="text-ashram-muted">Next Page</span>
-                <span className="px-2 py-0.5 bg-void border border-sanctum-border text-gada rounded">
+              <div className="flex justify-between py-1.5 border-b border-[#1e2538]">
+                <span className="text-slate-400">Next Page</span>
+                <span className="px-2 py-0.5 bg-[#0b0e14] border border-[#23293e] text-indigo-400 rounded-md font-mono">
                   → / D / Space
                 </span>
               </div>
-              <div className="flex justify-between py-1 border-b border-sanctum-border/40">
-                <span className="text-ashram-muted">Toggle HUD Telemetry</span>
-                <span className="px-2 py-0.5 bg-void border border-sanctum-border text-gada rounded">
+              <div className="flex justify-between py-1.5 border-b border-[#1e2538]">
+                <span className="text-slate-400">Toggle Header & Footer</span>
+                <span className="px-2 py-0.5 bg-[#0b0e14] border border-[#23293e] text-indigo-400 rounded-md font-mono">
                   M
                 </span>
               </div>
-              <div className="flex justify-between py-1">
-                <span className="text-ashram-muted">Toggle Fullscreen</span>
-                <span className="px-2 py-0.5 bg-void border border-sanctum-border text-gada rounded">
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-400">Toggle Fullscreen</span>
+                <span className="px-2 py-0.5 bg-[#0b0e14] border border-[#23293e] text-indigo-400 rounded-md font-mono">
                   F
                 </span>
               </div>

@@ -9,7 +9,7 @@ import { LongStripViewer } from "@/components/reader/LongStripViewer";
 import { PagedViewer } from "@/components/reader/PagedViewer";
 import { CyberGadaLoader } from "@/components/hud/CyberGadaLoader";
 import { saveReadingProgress } from "@/lib/bookmarks";
-import { CheckCircle, ArrowRight, RotateCcw, AlertTriangle } from "lucide-react";
+import { CheckCircle, ArrowRight, RotateCcw, AlertTriangle, Compass, Home, BookOpen } from "lucide-react";
 
 function extractMangaId(chapId: string, pageData?: any): string {
   if (pageData?.mangaId) return pageData.mangaId;
@@ -57,7 +57,7 @@ export default function ReaderPage({
         if (data && data.proxiedPages?.length > 0) {
           setPageData(data);
           setCurrentPage(1);
-          // Persist initial progress
+          // Persist progress
           const realMangaId = extractMangaId(chapId, data);
           saveReadingProgress({
             mangaId: realMangaId,
@@ -161,11 +161,11 @@ export default function ReaderPage({
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 bg-void flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-50 bg-[#0B0E14] flex items-center justify-center p-4">
         <CyberGadaLoader
           size="lg"
-          text="ॐ LOADING CHAPTER STREAM..."
-          subtext="RETRIEVING HIGH DEFINITION MANGA PAGES"
+          text="Loading chapter pages..."
+          subtext="Connecting to high-speed CDN stream"
         />
       </div>
     );
@@ -173,39 +173,35 @@ export default function ReaderPage({
 
   if (error || !pageData) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 bg-sanctum border border-sindoor/40 rounded max-w-lg mx-auto my-12">
-        <AlertTriangle className="w-12 h-12 text-sindoor mb-4 animate-pulse" />
-        <h2 className="font-hud uppercase text-xl text-ashram font-bold tracking-wider mb-2">
-          SACRED TRANSMISSION INTERRUPTED
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-8 bg-[#121622] border border-[#23293e] rounded-2xl max-w-lg mx-auto my-12 shadow-2xl">
+        <AlertTriangle className="w-12 h-12 text-amber-400 mb-4 animate-pulse" />
+        <h2 className="font-sans text-xl text-white font-bold tracking-tight mb-2">
+          Unable to Load Chapter
         </h2>
-        <p className="font-mono text-xs text-ashram-muted mb-6">
-          {error || "Unable to retrieve pages for this chapter stream."}
+        <p className="font-sans text-xs text-slate-400 mb-6 leading-relaxed">
+          {error || "Unable to retrieve image pages for this chapter stream."}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <Link
             href={`/manga/${extractMangaId(chapterId, pageData)}`}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gada/20 text-gada-bright border border-gada/50 font-hud font-bold uppercase text-xs rounded hover:bg-gada hover:text-void transition-all shadow-gada-gold"
+            className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-600/20"
           >
-            SERIES CODEX
+            <BookOpen className="w-4 h-4" />
+            Series Details
           </Link>
           <button
             onClick={() => loadChapter(chapterId, quality)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-sindoor hover:bg-sindoor-glow text-white font-hud font-bold uppercase text-xs rounded transition-all shadow-sindoor-neon"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#182032] hover:bg-[#202b44] text-slate-200 border border-[#2b3550] font-sans font-medium text-xs rounded-xl transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
-            RETRY STREAM
+            Retry Stream
           </button>
           <Link
             href="/explore"
-            className="px-5 py-2.5 bg-gada text-void font-hud font-bold uppercase text-xs rounded hover:bg-gada-bright transition-all shadow-gada-gold"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0b0e14] border border-[#23293e] hover:border-slate-600 text-slate-300 font-sans font-medium text-xs rounded-xl transition-colors"
           >
-            EXPLORE ALL MANGA
-          </Link>
-          <Link
-            href="/"
-            className="px-5 py-2.5 bg-void border border-sanctum-border text-ashram font-hud font-bold uppercase text-xs rounded hover:border-gada transition-colors"
-          >
-            HOME DECK
+            <Compass className="w-4 h-4" />
+            Browse Catalog
           </Link>
         </div>
       </div>
@@ -215,11 +211,11 @@ export default function ReaderPage({
   const totalPages = pageData.proxiedPages.length;
 
   return (
-    <div className="relative min-h-screen bg-void text-ashram flex flex-col items-center select-none">
-      {/* Dynamic Floating HUD Controls */}
+    <div className="relative min-h-screen bg-[#0B0E14] text-slate-100 flex flex-col items-center select-none">
+      {/* Floating Reader Controls */}
       <ReaderControls
         mangaId={extractMangaId(chapterId, pageData)}
-        mangaTitle={(pageData as any)?.mangaTitle || "Vajra Reader"}
+        mangaTitle={(pageData as any)?.mangaTitle || "Mangayomi Reader"}
         chapterTitle={(pageData as any)?.chapterTitle || `Chapter Stream (${totalPages} Pages)`}
         currentPage={currentPage}
         totalPages={totalPages}
@@ -252,36 +248,27 @@ export default function ReaderPage({
         )}
 
         {/* End of Chapter Card */}
-        <div className="w-full max-w-2xl mx-auto my-12 p-8 bg-sanctum/90 border border-gada/50 shadow-gada-gold rounded-sm text-center space-y-4">
-          <div className="flex items-center justify-center gap-2 text-gada-bright font-mono text-xs uppercase tracking-widest">
-            <CheckCircle className="w-5 h-5 text-gada" />
-            CHAPTER STREAM COMPLETED // VAJRA BLESSINGS
-          </div>
-          <h3 className="font-mythic text-2xl font-bold text-ashram">
-            You Have Reached The End Of This Chapter
+        <div className="w-full max-w-2xl mx-auto my-16 p-8 rounded-2xl bg-[#121622] border border-[#23293e] text-center space-y-4 shadow-xl">
+          <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto" />
+          <h3 className="font-sans text-xl font-bold text-white">
+            Chapter Complete!
           </h3>
-          <p className="font-hud text-sm text-ashram-muted max-w-md mx-auto">
-            Reading progress has been synchronized to your local sanctum codex.
+          <p className="font-sans text-xs text-slate-400">
+            You finished reading all {totalPages} pages of {(pageData as any)?.chapterTitle || "this chapter"}.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <div className="flex flex-wrap justify-center gap-3 pt-2">
             <Link
               href={`/manga/${extractMangaId(chapterId, pageData)}`}
-              className="px-6 py-2.5 rounded-sm bg-gada/20 text-gada-bright border border-gada/50 font-hud font-bold uppercase tracking-wider text-xs hover:bg-gada hover:text-void transition-all"
+              className="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-semibold text-xs shadow-md shadow-indigo-600/20 transition-all hover:scale-105"
             >
-              Series Codex
+              Return to Chapter List
             </Link>
             <Link
-              href="/"
-              className="px-6 py-2.5 rounded-sm bg-void border border-sanctum-border text-ashram font-hud font-bold uppercase tracking-wider text-xs hover:border-gada transition-all"
+              href="/explore"
+              className="px-5 py-2.5 rounded-xl bg-[#0b0e14] border border-[#23293e] hover:border-slate-600 text-slate-300 font-sans font-medium text-xs transition-colors"
             >
-              Command Deck
+              Explore More Manga
             </Link>
-            <button
-              onClick={() => handlePageChange(1)}
-              className="px-6 py-2.5 rounded-sm bg-gada text-void font-hud font-bold uppercase tracking-wider text-xs hover:bg-gada-bright transition-all shadow-gada-gold"
-            >
-              Re-read From Page 1
-            </button>
           </div>
         </div>
       </main>
