@@ -87,7 +87,16 @@ export const Footer: React.FC = () => {
               className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
             >
               <Github className="w-4 h-4" />
-              <span>Mangayomi Project</span>
+              <span>Mangayomi</span>
+            </a>
+            <a
+              href="https://github.com/anshumanv/awesome-anime-sources"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 hover:text-slate-300 transition-colors"
+            >
+              <Github className="w-4 h-4" />
+              <span>Awesome Sources</span>
             </a>
             <span className="flex items-center gap-1 text-slate-400">
               <ShieldCheck className="w-4 h-4 text-brand-light" />

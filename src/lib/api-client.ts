@@ -1,8 +1,9 @@
 import { NormalizedChapter, MangaDexManga, ChapterPagesResult } from "./adapters/mangadex";
 import { ChapterGroup } from "./aggregator";
 import { MangayomiExtension } from "./adapters/mangayomi";
+import { AwesomeSourceItem } from "./adapters/awesome-sources";
 
-export type { MangayomiExtension };
+export type { MangayomiExtension, AwesomeSourceItem };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -99,6 +100,18 @@ export async function getExtensionsCatalog(): Promise<MangayomiExtension[]> {
     return json.data ?? [];
   } catch (err) {
     console.error("getExtensionsCatalog client error:", err);
+    return [];
+  }
+}
+
+export async function getAwesomeSourcesCatalog(category = "all", query = ""): Promise<AwesomeSourceItem[]> {
+  try {
+    const res = await fetch(`${API_BASE}/api/awesome-sources?category=${encodeURIComponent(category)}&q=${encodeURIComponent(query)}`);
+    if (!res.ok) throw new Error("Failed to fetch awesome anime sources");
+    const json = await res.json();
+    return json.data ?? [];
+  } catch (err) {
+    console.error("getAwesomeSourcesCatalog client error:", err);
     return [];
   }
 }
