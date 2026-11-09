@@ -100,7 +100,8 @@ function fetchWithCurl(
     }
     args.push(url);
 
-    const cp = spawn("curl.exe", args);
+    const curlBinary = process.platform === "win32" ? "curl.exe" : "curl";
+    const cp = spawn(curlBinary, args);
     const chunks: Buffer[] = [];
     cp.stdout.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
     cp.on("close", (code) => {

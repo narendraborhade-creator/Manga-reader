@@ -62,10 +62,10 @@ function ExploreContent() {
   ) => {
     setLoading(true);
     let term = q.replace(/[’‘`]/g, "'").trim();
-    if (!term && preset === "manhwa") term = "Solo Leveling Swordmaster Tower of God";
-    if (!term && preset === "shonen") term = "Shonen Action";
-    if (!term && preset === "top") term = "Berserk One Piece";
-    if (!term && preset === "trending") term = "Chainsaw Man Jujutsu Kaisen";
+    if (!term && preset === "manhwa") term = "Solo Leveling";
+    if (!term && preset === "shonen") term = "Chainsaw Man";
+    if (!term && preset === "top") term = "Berserk";
+    if (!term && preset === "trending") term = "Jujutsu Kaisen";
 
     const effectiveQuery = [term, genre || ""].filter(Boolean).join(" ");
     searchManga(effectiveQuery, 36, source)
