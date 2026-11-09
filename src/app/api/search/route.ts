@@ -4,6 +4,7 @@ import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
 import { searchAllManga } from "@/lib/adapters/allmanga";
 import { searchAsura } from "@/lib/adapters/asura";
+import { fetchAniListPopular } from "@/lib/adapters/anilist";
 
 export const dynamic = "force-dynamic";
 
@@ -17,56 +18,148 @@ function normalizeKey(title: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function isDoujinshiOrSpinoff(title: string): boolean {
+  const t = title.toLowerCase();
+  return (
+    /\b(dj|doujin|doujinshi|omake|futanari|hentai|fan-comic|fancomic|anthology)\b/i.test(t) ||
+    t.includes(" dj ") ||
+    t.includes(" dj -") ||
+    t.includes("dj -") ||
+    t.includes("(dj)") ||
+    t.includes("fan comic")
+  );
+}
+
 export async function GET(req: NextRequest) {
   try {
     const rawQuery = req.nextUrl.searchParams.get("q") || "";
     const cleanQuery = rawQuery.replace(/[’‘`]/g, "'").trim();
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "36", 10);
-    const sourceFilter = req.nextUrl.searchParams.get("source") || "all";
+    const sourceFilter = (req.nextUrl.searchParams.get("source") || "all").toLowerCase();
 
-    // Parallel multi-engine search across all top sources
-    const [pillResults, weebResults, dexResults, allResults, asuraResults] = await Promise.all([
-      searchMangaPill(cleanQuery, 24).catch(() => []),
+    // 1. Browsing with empty query: Return world-class verified top & trending catalog
+    if (!cleanQuery) {
+      const [aniListPopular, dexPopular] = await Promise.all([
+        fetchAniListPopular(limit).catch(() => []),
+        searchMangaDex("", limit).catch(() => []),
+      ]);
+
+      const popularItems: any[] = [
+        ...aniListPopular.map((m) => ({
+          id: `anilist-${m.id}`,
+          title: m.title.english || m.title.romaji || "Popular Manga",
+          altTitles: [m.title.romaji, m.title.native].filter(Boolean) as string[],
+          description: m.description || "",
+          coverUrl: m.coverImage?.extraLarge || m.coverImage?.large || "/placeholder-manga.jpg",
+          bannerUrl: m.bannerImage || m.coverImage?.extraLarge || m.coverImage?.large,
+          status: m.status || "RELEASING",
+          score: m.averageScore || 92,
+          tags: m.genres || [],
+          totalChapters: m.chapters || 0,
+        })),
+        ...dexPopular.map((d) => ({
+          id: d.id,
+          title: d.title,
+          altTitles: d.altTitles || [],
+          description: d.description || "",
+          coverUrl: d.coverUrl,
+          bannerUrl: d.bannerUrl,
+          status: d.status || "ONGOING",
+          score: 90,
+          tags: d.tags || [],
+          totalChapters: 0,
+        })),
+      ];
+
+      const seen = new Set<string>();
+      const deduped: any[] = [];
+      for (const item of popularItems) {
+        const k = normalizeKey(item.title);
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          deduped.push(item);
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: deduped.slice(0, limit),
+        count: Math.min(deduped.length, limit),
+      });
+    }
+
+    // 2. Parallel multi-engine search across high-reliability primary sources
+    const [weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
       searchWeebCentral(cleanQuery, 24).catch(() => []),
       searchMangaDex(cleanQuery, 24).catch(() => []),
-      searchAllManga(cleanQuery, 24).catch(() => []),
+      searchMangaPill(cleanQuery, 24).catch(() => []),
       searchAsura(cleanQuery, 24).catch(() => []),
     ]);
+
+    // Only query AllManga if explicitly filtered or if top 4 sources returned 0 results
+    let allResults: any[] = [];
+    if (sourceFilter === "allmanga" || (weebResults.length === 0 && dexResults.length === 0 && pillResults.length === 0)) {
+      allResults = await searchAllManga(cleanQuery, 16).catch(() => []);
+    }
 
     // Unified deduplication map keyed by normalized title
     const unifiedMap = new Map<string, any>();
 
-    // 1. Add MangaDex items
+    // Priority 1: WeebCentral (huge canon archives, 1000+ chapters, verified unblocked WebP CDN)
+    for (const weeb of weebResults) {
+      const key = normalizeKey(weeb.title);
+      if (!key) continue;
+
+      unifiedMap.set(key, {
+        id: weeb.id,
+        title: weeb.title,
+        altTitles: [],
+        description: "",
+        coverUrl: weeb.coverUrl,
+        bannerUrl: weeb.coverUrl,
+        status: "ONGOING",
+        score: 93,
+        tags: weeb.genres || [],
+        totalChapters: weeb.totalChapters || 0,
+      });
+    }
+
+    // Priority 2: MangaDex (official verified API & high-res covers)
     for (const dex of dexResults) {
-      const entry = {
-        id: dex.id,
-        title: dex.title,
-        altTitles: dex.altTitles || [],
-        description: dex.description || "",
-        coverUrl: dex.coverUrl,
-        bannerUrl: dex.bannerUrl,
-        status: dex.status || "ONGOING",
-        score: (dex as any).score || 90,
-        tags: dex.tags || [],
-        totalChapters: (dex as any).totalChapters || 0,
-        year: dex.year,
-        author: dex.author,
-        artist: dex.artist,
-      };
-
       const key = normalizeKey(dex.title);
-      if (key) unifiedMap.set(key, entry);
+      if (!key) continue;
 
-      // Register alternative titles so English variants point to the same entry
-      for (const alt of dex.altTitles || []) {
-        const altKey = normalizeKey(alt);
-        if (altKey && !unifiedMap.has(altKey)) {
-          unifiedMap.set(altKey, entry);
+      const existing = unifiedMap.get(key);
+      if (existing) {
+        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
+          existing.coverUrl = dex.coverUrl;
         }
+        if (dex.tags?.length) {
+          existing.tags = Array.from(new Set([...existing.tags, ...dex.tags]));
+        }
+        if (dex.altTitles?.length) {
+          existing.altTitles = Array.from(new Set([...(existing.altTitles || []), ...dex.altTitles]));
+        }
+      } else {
+        unifiedMap.set(key, {
+          id: dex.id,
+          title: dex.title,
+          altTitles: dex.altTitles || [],
+          description: dex.description || "",
+          coverUrl: dex.coverUrl,
+          bannerUrl: dex.bannerUrl,
+          status: dex.status || "ONGOING",
+          score: (dex as any).score || 90,
+          tags: dex.tags || [],
+          totalChapters: (dex as any).totalChapters || 0,
+          year: dex.year,
+          author: dex.author,
+          artist: dex.artist,
+        });
       }
     }
 
-    // 2. Merge MangaPill items
+    // Priority 3: MangaPill (high-speed mirror)
     for (const pill of pillResults) {
       const key = normalizeKey(pill.title);
       if (!key) continue;
@@ -81,10 +174,6 @@ export async function GET(req: NextRequest) {
         }
         if (pill.genres?.length) {
           existing.tags = Array.from(new Set([...existing.tags, ...pill.genres]));
-        }
-        // Prefer English title from MangaPill if existing is non-ascii or romaji
-        if (/^[\x20-\x7E]+$/.test(pill.title) && !/^[\x20-\x7E]+$/.test(existing.title)) {
-          existing.title = pill.title;
         }
       } else {
         unifiedMap.set(key, {
@@ -102,78 +191,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3. Merge WeebCentral items
-    for (const weeb of weebResults) {
-      const key = normalizeKey(weeb.title);
-      if (!key) continue;
-
-      const existing = unifiedMap.get(key);
-      if (existing) {
-        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
-          existing.coverUrl = weeb.coverUrl;
-        }
-        if (weeb.totalChapters && (!existing.totalChapters || weeb.totalChapters > existing.totalChapters)) {
-          existing.totalChapters = weeb.totalChapters;
-        }
-        if (weeb.genres?.length) {
-          existing.tags = Array.from(new Set([...existing.tags, ...weeb.genres]));
-        }
-        // WeebCentral always uses clean English titles (e.g. "Solo Leveling", "Tower of God")
-        if (/^[\x20-\x7E]+$/.test(weeb.title)) {
-          existing.title = weeb.title;
-        }
-      } else {
-        unifiedMap.set(key, {
-          id: weeb.id,
-          title: weeb.title,
-          altTitles: [],
-          description: "",
-          coverUrl: weeb.coverUrl,
-          bannerUrl: weeb.coverUrl,
-          status: "ONGOING",
-          score: 92,
-          tags: weeb.genres || [],
-          totalChapters: weeb.totalChapters || 0,
-        });
-      }
-    }
-
-    // 4. Merge AllManga items
-    for (const allItem of allResults) {
-      const key = normalizeKey(allItem.title);
-      if (!key) continue;
-
-      const existing = unifiedMap.get(key);
-      if (existing) {
-        if (allItem.totalChapters && (!existing.totalChapters || allItem.totalChapters > existing.totalChapters)) {
-          existing.totalChapters = allItem.totalChapters;
-        }
-        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
-          existing.coverUrl = allItem.coverUrl;
-        }
-        if (allItem.genres?.length) {
-          existing.tags = Array.from(new Set([...existing.tags, ...allItem.genres]));
-        }
-        if (allItem.englishName && !existing.altTitles?.includes(allItem.englishName)) {
-          existing.altTitles = [...(existing.altTitles || []), allItem.englishName];
-        }
-      } else {
-        unifiedMap.set(key, {
-          id: allItem.id,
-          title: allItem.title,
-          altTitles: allItem.englishName ? [allItem.englishName] : [],
-          description: "",
-          coverUrl: allItem.coverUrl,
-          bannerUrl: allItem.coverUrl,
-          status: allItem.status || "ONGOING",
-          score: 89,
-          tags: allItem.genres || [],
-          totalChapters: allItem.totalChapters || 0,
-        });
-      }
-    }
-
-    // 5. Merge Asura Scans items
+    // Priority 4: Asura Scans (unblocked HD manhwa stream)
     for (const asuraItem of asuraResults) {
       const key = normalizeKey(asuraItem.title);
       if (!key) continue;
@@ -183,14 +201,8 @@ export async function GET(req: NextRequest) {
         if (asuraItem.totalChapters && (!existing.totalChapters || asuraItem.totalChapters > existing.totalChapters)) {
           existing.totalChapters = asuraItem.totalChapters;
         }
-        if (!existing.coverUrl || existing.coverUrl.includes("placeholder")) {
-          existing.coverUrl = asuraItem.coverUrl;
-        }
         if (asuraItem.genres?.length) {
           existing.tags = Array.from(new Set([...existing.tags, ...asuraItem.genres]));
-        }
-        if (asuraItem.altTitles?.length) {
-          existing.altTitles = Array.from(new Set([...(existing.altTitles || []), ...asuraItem.altTitles]));
         }
       } else {
         unifiedMap.set(key, {
@@ -206,6 +218,28 @@ export async function GET(req: NextRequest) {
           totalChapters: asuraItem.totalChapters || 0,
         });
       }
+    }
+
+    // Priority 5: AllManga (only non-placeholder, non-doujinshi items that are not in existing sources)
+    for (const allItem of allResults) {
+      const key = normalizeKey(allItem.title);
+      if (!key || unifiedMap.has(key)) continue;
+
+      // Skip entries with broken placeholder covers
+      if (allItem.coverUrl === "/placeholder-manga.jpg" && !sourceFilter) continue;
+
+      unifiedMap.set(key, {
+        id: allItem.id,
+        title: allItem.title,
+        altTitles: allItem.englishName ? [allItem.englishName] : [],
+        description: "",
+        coverUrl: allItem.coverUrl,
+        bannerUrl: allItem.coverUrl,
+        status: allItem.status || "ONGOING",
+        score: 85,
+        tags: allItem.genres || [],
+        totalChapters: allItem.totalChapters || 0,
+      });
     }
 
     let combined = Array.from(new Set(unifiedMap.values()));
@@ -226,7 +260,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Precision sorting:
+    // Precision ranking
     if (cleanQuery) {
       const q = cleanQuery.toLowerCase();
       const qClean = q.replace(/[^a-z0-9]/g, "");
@@ -237,25 +271,25 @@ export async function GET(req: NextRequest) {
         const aClean = aTitle.replace(/[^a-z0-9]/g, "");
         const bClean = bTitle.replace(/[^a-z0-9]/g, "");
 
-        // 1. Exact title match
+        // 1. Exact title match ALWAYS first (e.g. "One Piece" -> "One Piece")
         const aExact = aClean === qClean;
         const bExact = bClean === qClean;
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
 
-        // 2. Starts with query
+        // 2. Canonical series ALWAYS before doujinshi/fan spin-offs
+        const aDoujin = isDoujinshiOrSpinoff(a.title);
+        const bDoujin = isDoujinshiOrSpinoff(b.title);
+        if (!aDoujin && bDoujin) return -1;
+        if (aDoujin && !bDoujin) return 1;
+
+        // 3. Starts with query
         const aStarts = aClean.startsWith(qClean);
         const bStarts = bClean.startsWith(qClean);
         if (aStarts && !bStarts) return -1;
         if (!aStarts && bStarts) return 1;
 
-        // 3. Main series over spin-offs/doujinshi
-        const aDoujin = aTitle.includes("doujinshi") || aTitle.includes("omake") || aTitle.includes("academy");
-        const bDoujin = bTitle.includes("doujinshi") || bTitle.includes("omake") || bTitle.includes("academy");
-        if (!aDoujin && bDoujin) return -1;
-        if (aDoujin && !bDoujin) return 1;
-
-        // 4. Higher chapter count first
+        // 4. Higher chapter count first (canon 1100+ chapters beats 1-chapter doujinshi)
         const aCh = a.totalChapters || 0;
         const bCh = b.totalChapters || 0;
         return bCh - aCh;

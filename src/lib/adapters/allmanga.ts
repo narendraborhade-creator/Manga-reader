@@ -36,6 +36,7 @@ export async function searchAllManga(
   query: string,
   limit = 24
 ): Promise<AllMangaItem[]> {
+  if (!query || !query.trim()) return [];
   try {
     const q = `query($search: SearchInput, $limit: Int, $translationType: VaildTranslationTypeMangaEnumType) {
       mangas(search: $search, limit: $limit, translationType: $translationType) {
@@ -61,7 +62,7 @@ export async function searchAllManga(
       body: JSON.stringify({
         query: q,
         variables: {
-          search: { query: query.trim() || "One Piece" },
+          search: { query: query.trim() },
           limit,
           translationType: "sub",
         },

@@ -353,11 +353,25 @@ export async function GET(
         matchedWeeb ? fetchWeebCentralDetails(matchedWeeb.id).catch(() => null) : null,
       ]);
 
+      const meta = (richMeta?.data || {}) as any;
+      const bestCover =
+        (meta.coverImage?.extraLarge && meta.coverImage.extraLarge.includes("anilist.co"))
+          ? meta.coverImage.extraLarge
+          : (meta.coverImage?.large && meta.coverImage.large.includes("anilist.co"))
+          ? meta.coverImage.large
+          : (weebData?.coverUrl && !weebData.coverUrl.includes("placeholder"))
+          ? weebData.coverUrl
+          : (pillData?.coverUrl && !pillData.coverUrl.includes("placeholder"))
+          ? pillData.coverUrl
+          : (asuraData?.coverUrl && !asuraData.coverUrl.includes("placeholder"))
+          ? asuraData.coverUrl
+          : allData.coverUrl;
+
       let allChapters = allData.chapters.map((ch) => ({
         externalChapId: ch.id,
         mangaExternalId: allData.id,
         mangaTitle: allData.title,
-        coverUrl: allData.coverUrl,
+        coverUrl: bestCover,
         chapterNumber: ch.chapterNumber,
         volumeNumber: null,
         title: ch.title,
@@ -427,7 +441,6 @@ export async function GET(
       }
 
       const chapterGroups = unifyAndSortChapters(allChapters as any);
-      const meta = (richMeta?.data || {}) as any;
 
       return NextResponse.json({
         success: true,
@@ -436,8 +449,8 @@ export async function GET(
           title: allData.title,
           altTitles: [],
           description: allData.description || meta.description || meta.synopsis || "No synopsis available.",
-          coverUrl: allData.coverUrl,
-          bannerUrl: meta.bannerImage || allData.coverUrl,
+          coverUrl: bestCover,
+          bannerUrl: meta.bannerImage || bestCover,
           status: allData.status,
           score: meta.averageScore || meta.score || 91,
           year: null,
@@ -520,8 +533,8 @@ export async function GET(
       finalCover = metaData.coverImage;
     } else if (bestAsura?.coverUrl && !bestAsura.coverUrl.includes("placeholder")) {
       finalCover = bestAsura.coverUrl;
-    } else if (bestAllManga?.coverUrl && !bestAllManga.coverUrl.includes("placeholder")) {
-      finalCover = bestAllManga.coverUrl;
+    } else if (bestWeeb?.coverUrl && !bestWeeb.coverUrl.includes("placeholder")) {
+      finalCover = bestWeeb.coverUrl;
     } else if (bestPill?.coverUrl && !bestPill.coverUrl.includes("placeholder")) {
       finalCover = bestPill.coverUrl;
     }

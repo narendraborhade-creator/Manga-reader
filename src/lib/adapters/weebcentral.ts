@@ -167,15 +167,18 @@ export async function fetchWeebCentralDetails(rawId: string) {
         const chapId = href ? href.split("/chapters/")[1] : "";
         if (!chapId) return null;
 
-        const chapText = $ch(el).find("span").first().text().trim() || $ch(el).text().trim();
-        const numStr = chapText.split("Chapter ")[1] || chapText.replace(/[^0-9.]/g, "") || "0";
-        const num = parseFloat(numStr) || 0;
+        const rawText = $ch(el).text().replace(/\s+/g, " ").trim();
+        const numMatch = rawText.match(/Chapter\s+([0-9.]+)/i);
+        const num = numMatch
+          ? parseFloat(numMatch[1])
+          : parseFloat(rawText.replace(/[^0-9.]/g, "")) || 0;
+        const cleanTitle = num > 0 ? `Chapter ${num}` : "Chapter 1";
 
         return {
           id: `weebcentral-${chapId}`,
           chapterNumber: num,
           chapterString: String(num),
-          title: chapText || `Chapter ${num}`,
+          title: cleanTitle,
           mangaId: `weebcentral-${cleanId}`,
           sourceName: "WeebCentral Stream",
         };

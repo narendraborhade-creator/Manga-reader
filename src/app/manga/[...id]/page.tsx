@@ -156,19 +156,26 @@ export default function MangaDetailPage({
   );
 
   const banner = manga.bannerUrl || manga.coverUrl;
-  const bannerSrc =
-    banner.includes("s4.anilist.co") || banner.includes("anilist.co")
-      ? banner
-      : banner.startsWith("http")
-      ? `/api/proxy/image?url=${encodeURIComponent(banner)}`
-      : banner;
+  const isDirectDomain = (u: string) =>
+    Boolean(
+      u &&
+        (u.includes("s4.anilist.co") ||
+          u.includes("anilist.co") ||
+          u.includes("uploads.mangadex.org") ||
+          u.includes("temp.compsci88.com"))
+    );
 
-  const coverSrc =
-    manga.coverUrl.includes("s4.anilist.co") || manga.coverUrl.includes("anilist.co")
-      ? manga.coverUrl
-      : manga.coverUrl.startsWith("http")
-      ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}`
-      : manga.coverUrl;
+  const bannerSrc = isDirectDomain(banner)
+    ? banner
+    : banner.startsWith("http")
+    ? `/api/proxy/image?url=${encodeURIComponent(banner)}`
+    : banner;
+
+  const coverSrc = isDirectDomain(manga.coverUrl)
+    ? manga.coverUrl
+    : manga.coverUrl.startsWith("http")
+    ? `/api/proxy/image?url=${encodeURIComponent(manga.coverUrl)}`
+    : manga.coverUrl;
 
   return (
     <div className="space-y-8 pb-16">
