@@ -19,7 +19,31 @@ export function cleanKey(t: string): string {
     .replace(/[^a-z0-9]/g, "");
 }
 
+export function isNovelTitle(t: string): boolean {
+  if (!t) return false;
+  const lower = t.toLowerCase();
+  return (
+    /\b(light\s*novel|web\s*novel|webnovel)\b/i.test(lower) ||
+    /\((novel|light\s*novel|web\s*novel|ln|wn|book\s*version|volume\s*version)\)/i.test(lower) ||
+    /\[(novel|light\s*novel|web\s*novel|ln|wn|book\s*version)\]/i.test(lower) ||
+    /\s*-\s*(novel|light\s*novel|web\s*novel)\b/i.test(lower) ||
+    /:\s*(novel|light\s*novel|web\s*novel)\b/i.test(lower) ||
+    /\b(novel\s*version)\b/i.test(lower) ||
+    /\b(novel)\s*$/i.test(lower)
+  );
+}
+
 export function isStrictTitleMatch(candidate: string, targets: string[]): boolean {
+  // If target series is a comic but candidate is a novel, reject immediately
+  const candidateIsNovel = isNovelTitle(candidate);
+  const targetIsNovel = targets.some((t) => isNovelTitle(t));
+  if (candidateIsNovel && !targetIsNovel) {
+    return false;
+  }
+  if (!candidateIsNovel && targetIsNovel) {
+    return false;
+  }
+
   const c = cleanKey(candidate);
   if (!c || c.length < 2) return false;
 

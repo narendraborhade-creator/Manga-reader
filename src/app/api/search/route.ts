@@ -6,6 +6,7 @@ import { searchAllManga } from "@/lib/adapters/allmanga";
 import { searchAsura } from "@/lib/adapters/asura";
 import { searchMangaKatana } from "@/lib/adapters/mangakatana";
 import { fetchAniListPopular } from "@/lib/adapters/anilist";
+import { isNovelTitle } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export async function GET(req: NextRequest) {
       const seen = new Set<string>();
       const deduped: any[] = [];
       for (const item of popularItems) {
+        if (isNovelTitle(item.title)) continue;
         const k = normalizeKey(item.title);
         if (k && !seen.has(k)) {
           seen.add(k);
@@ -88,6 +90,8 @@ export async function GET(req: NextRequest) {
         count: Math.min(deduped.length, limit),
       });
     }
+
+    const queryAllowsNovels = cleanQuery.toLowerCase().includes("novel");
 
     // 2. Parallel multi-engine search across high-reliability primary sources
     const [katanaResults, weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
@@ -109,6 +113,7 @@ export async function GET(req: NextRequest) {
 
     // Priority 0: MangaKatana (huge 100-200+ chapter archives for manhwa and webtoons)
     for (const katana of katanaResults) {
+      if (!queryAllowsNovels && isNovelTitle(katana.title)) continue;
       const key = normalizeKey(katana.title);
       if (!key) continue;
 
@@ -128,25 +133,34 @@ export async function GET(req: NextRequest) {
 
     // Priority 1: WeebCentral (huge canon archives, 1000+ chapters, verified unblocked WebP CDN)
     for (const weeb of weebResults) {
+      if (!queryAllowsNovels && isNovelTitle(weeb.title)) continue;
       const key = normalizeKey(weeb.title);
       if (!key) continue;
 
-      unifiedMap.set(key, {
-        id: weeb.id,
-        title: weeb.title,
-        altTitles: [],
-        description: "",
-        coverUrl: weeb.coverUrl,
-        bannerUrl: weeb.coverUrl,
-        status: "ONGOING",
-        score: 93,
-        tags: weeb.genres || [],
-        totalChapters: weeb.totalChapters || 0,
-      });
+      const existing = unifiedMap.get(key);
+      if (existing) {
+        if (weeb.totalChapters && (!existing.totalChapters || weeb.totalChapters > existing.totalChapters)) {
+          existing.totalChapters = weeb.totalChapters;
+        }
+      } else {
+        unifiedMap.set(key, {
+          id: weeb.id,
+          title: weeb.title,
+          altTitles: [],
+          description: "",
+          coverUrl: weeb.coverUrl,
+          bannerUrl: weeb.coverUrl,
+          status: "ONGOING",
+          score: 93,
+          tags: weeb.genres || [],
+          totalChapters: weeb.totalChapters || 0,
+        });
+      }
     }
 
     // Priority 2: MangaDex (official verified API & high-res covers)
     for (const dex of dexResults) {
+      if (!queryAllowsNovels && isNovelTitle(dex.title)) continue;
       const key = normalizeKey(dex.title);
       if (!key) continue;
 
@@ -160,6 +174,10 @@ export async function GET(req: NextRequest) {
         }
         if (dex.altTitles?.length) {
           existing.altTitles = Array.from(new Set([...(existing.altTitles || []), ...dex.altTitles]));
+        }
+        const dexCh = (dex as any).totalChapters || 0;
+        if (dexCh && (!existing.totalChapters || dexCh > existing.totalChapters)) {
+          existing.totalChapters = dexCh;
         }
       } else {
         unifiedMap.set(key, {
@@ -182,6 +200,7 @@ export async function GET(req: NextRequest) {
 
     // Priority 3: MangaPill (high-speed mirror)
     for (const pill of pillResults) {
+      if (!queryAllowsNovels && isNovelTitle(pill.title)) continue;
       const key = normalizeKey(pill.title);
       if (!key) continue;
 
@@ -214,6 +233,7 @@ export async function GET(req: NextRequest) {
 
     // Priority 4: Asura Scans (unblocked HD manhwa stream)
     for (const asuraItem of asuraResults) {
+      if (!queryAllowsNovels && isNovelTitle(asuraItem.title)) continue;
       const key = normalizeKey(asuraItem.title);
       if (!key) continue;
 
@@ -243,8 +263,17 @@ export async function GET(req: NextRequest) {
 
     // Priority 5: AllManga (only non-placeholder, non-doujinshi items that are not in existing sources)
     for (const allItem of allResults) {
+      if (!queryAllowsNovels && isNovelTitle(allItem.title)) continue;
       const key = normalizeKey(allItem.title);
-      if (!key || unifiedMap.has(key)) continue;
+      if (!key) continue;
+
+      const existing = unifiedMap.get(key);
+      if (existing) {
+        if (allItem.totalChapters && (!existing.totalChapters || allItem.totalChapters > existing.totalChapters)) {
+          existing.totalChapters = allItem.totalChapters;
+        }
+        continue;
+      }
 
       // Skip entries with broken placeholder covers
       if (allItem.coverUrl === "/placeholder-manga.jpg" && !sourceFilter) continue;

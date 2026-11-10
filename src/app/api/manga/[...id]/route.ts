@@ -65,18 +65,23 @@ export async function GET(
         ]);
 
         const katanaFound = katanaM.find((m) => isStrictTitleMatch(m.title, searchTitles));
-        if (katanaFound && (katanaFound.totalChapters || 0) > 20) {
+        if (katanaFound && (katanaFound.totalChapters || 0) > 0) {
           resolvedMangaId = katanaFound.id;
+          break;
+        }
+        const asuraFound = asuraM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (asuraFound && (asuraFound.totalChapters || 0) > 0) {
+          resolvedMangaId = asuraFound.id;
+          break;
+        }
+        const weebFound = weebM.find((m) => isStrictTitleMatch(m.title, searchTitles));
+        if (weebFound) {
+          resolvedMangaId = weebFound.id;
           break;
         }
         const dexFound = dexM.find((m) => isStrictTitleMatch(m.title, searchTitles));
         if (dexFound) {
           resolvedMangaId = dexFound.id;
-          break;
-        }
-        const asuraFound = asuraM.find((m) => isStrictTitleMatch(m.title, searchTitles));
-        if (asuraFound) {
-          resolvedMangaId = asuraFound.id;
           break;
         }
         const allFound = allM.find((m) => isStrictTitleMatch(m.title, searchTitles));
@@ -87,11 +92,6 @@ export async function GET(
         const pillFound = pillM.find((m) => isStrictTitleMatch(m.title, searchTitles));
         if (pillFound) {
           resolvedMangaId = pillFound.id;
-          break;
-        }
-        const weebFound = weebM.find((m) => isStrictTitleMatch(m.title, searchTitles));
-        if (weebFound) {
-          resolvedMangaId = weebFound.id;
           break;
         }
         if (katanaFound) {
@@ -657,9 +657,17 @@ export async function GET(
 
     const canonicalTitle = mangaDexData.title;
 
-    // Search query terms: canonical English title first, then raw title, then altTitles
+    // Search query terms: canonical English title, altTitles, and root titles without subtitle punctuation
+    const extraTerms: string[] = [];
+    for (const t of [canonicalTitle, ...(mangaDexData.altTitles || [])]) {
+      if (t && (t.includes(":") || t.includes("-") || t.includes("–"))) {
+        const split = t.split(/[:\-–]/)[0].trim();
+        if (split.length >= 4) extraTerms.push(split);
+      }
+    }
+
     const candidateTerms = Array.from(
-      new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 4) || [])])
+      new Set([canonicalTitle, ...(mangaDexData.altTitles?.slice(0, 6) || []), ...extraTerms])
     ).filter(Boolean);
 
     // Concurrently fetch Rich Metadata, MangaDex Chapters, MangaPill, WeebCentral, AllManga, Asura, MangaKatana

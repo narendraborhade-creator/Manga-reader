@@ -167,11 +167,17 @@ export async function fetchWeebCentralDetails(rawId: string) {
         const chapId = href ? href.split("/chapters/")[1] : "";
         if (!chapId) return null;
 
-        const rawText = $ch(el).text().replace(/\s+/g, " ").trim();
-        const numMatch = rawText.match(/Chapter\s+([0-9.]+)/i);
-        const num = numMatch
-          ? parseFloat(numMatch[1])
-          : parseFloat(rawText.replace(/[^0-9.]/g, "")) || 0;
+        const clone = $ch(el).clone();
+        clone.find("time").remove();
+        const rawText = clone.text().replace(/\s+/g, " ").trim();
+        const match =
+          rawText.match(/(?:chapter|episode|ch\.|ep\.|ch|ep)\s*:?\s*([0-9]+(?:\.[0-9]+)?)/i) ||
+          rawText.match(/\b([0-9]+(?:\.[0-9]+)?)\b/);
+        let num = match ? parseFloat(match[1]) : 0;
+        if (num > 5000) {
+          const subMatch = rawText.match(/(?:chapter|episode|ch\.|ep\.|ch|ep)\s*:?\s*([0-9]{1,4}(?:\.[0-9]+)?)/i);
+          num = subMatch ? parseFloat(subMatch[1]) : 0;
+        }
         const cleanTitle = num > 0 ? `Chapter ${num}` : "Chapter 1";
 
         return {

@@ -47,10 +47,8 @@ export const MangaCard: React.FC<MangaCardProps> = ({
 
   const directCanLoad =
     coverUrl &&
-    (coverUrl.includes("uploads.mangadex.org") ||
-      coverUrl.includes("anilist.co") ||
+    (coverUrl.includes("anilist.co") ||
       coverUrl.includes("s4.anilist.co") ||
-      coverUrl.includes("mangakatana.com") ||
       coverUrl.includes("temp.compsci88.com"));
 
   const resolvedCoverSrc = (() => {
