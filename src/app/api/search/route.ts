@@ -294,6 +294,11 @@ export async function GET(req: NextRequest) {
 
     let combined = Array.from(new Set(unifiedMap.values()));
 
+    // Filter out light novels, web novels, and book versions unless explicitly queried
+    if (!queryAllowsNovels) {
+      combined = combined.filter((m) => !isNovelTitle(m.title));
+    }
+
     // Filter by source if requested
     if (sourceFilter && sourceFilter !== "all") {
       const sf = sourceFilter.toLowerCase();

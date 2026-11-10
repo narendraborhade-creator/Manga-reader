@@ -24,12 +24,13 @@ export function isNovelTitle(t: string): boolean {
   const lower = t.toLowerCase();
   return (
     /\b(light\s*novel|web\s*novel|webnovel)\b/i.test(lower) ||
-    /\((novel|light\s*novel|web\s*novel|ln|wn|book\s*version|volume\s*version)\)/i.test(lower) ||
-    /\[(novel|light\s*novel|web\s*novel|ln|wn|book\s*version)\]/i.test(lower) ||
+    /\((novel|light\s*novel|web\s*novel|ln|wn|book\s*version|volume|volume\s*version)\)/i.test(lower) ||
+    /\[(novel|light\s*novel|web\s*novel|ln|wn|book\s*version|volume)\]/i.test(lower) ||
     /\s*-\s*(novel|light\s*novel|web\s*novel)\b/i.test(lower) ||
     /:\s*(novel|light\s*novel|web\s*novel)\b/i.test(lower) ||
     /\b(novel\s*version)\b/i.test(lower) ||
-    /\b(novel)\s*$/i.test(lower)
+    /\b(novel)\b/i.test(lower) ||
+    /\b(light\s*novel)\b/i.test(lower)
   );
 }
 
