@@ -109,10 +109,15 @@ export const Navbar: React.FC = () => {
     <nav className="sticky top-0 z-50 w-full bg-dark/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Brand Logo - Mangayomi Style */}
+          {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand to-accent flex items-center justify-center shadow-lg shadow-brand/20 group-hover:scale-105 transition-transform duration-200">
-              <BookOpen className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl overflow-hidden ring-1 ring-white/20 group-hover:ring-brand shadow-lg shadow-brand/20 group-hover:scale-105 transition-all duration-200 bg-dark-surface">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand-icon.png"
+                alt="Website Logo"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="flex items-center gap-1.5">
               <span className="font-sans font-bold text-lg tracking-tight text-white group-hover:text-brand-light transition-colors">

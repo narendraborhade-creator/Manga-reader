@@ -10,8 +10,13 @@ export const Footer: React.FC = () => {
           {/* Brand Info */}
           <div className="space-y-3 md:col-span-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand to-accent flex items-center justify-center">
-                <BookOpen className="w-4 h-4 text-white" />
+              <div className="w-8 h-8 rounded-xl overflow-hidden ring-1 ring-white/20 shadow-md bg-dark">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand-icon.png"
+                  alt="Website Logo"
+                  className="w-full h-full object-cover"
+                />
               </div>
               <span className="font-sans font-bold text-lg text-white">Mangayomi Web</span>
             </div>

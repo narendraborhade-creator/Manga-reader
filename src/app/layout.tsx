@@ -9,7 +9,14 @@ export const metadata: Metadata = {
     "Free, modern, open-source manga reader inspired by Mangayomi. Browse and read thousands of manga, manhwa, and manhua from top community sources.",
   keywords: ["mangayomi", "manga", "manhwa", "manga reader", "webtoon", "mangadex", "asura", "weebcentral"],
   icons: {
-    icon: "/favicon.ico",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+      { url: "/brand-icon.png", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
