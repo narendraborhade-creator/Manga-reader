@@ -268,8 +268,10 @@ export async function GET(req: NextRequest) {
     // Filter by source if requested
     if (sourceFilter && sourceFilter !== "all") {
       const sf = sourceFilter.toLowerCase();
-      if (sf === "mangadex") {
-        combined = combined.filter((m) => !m.id.startsWith("mangapill-") && !m.id.startsWith("weebcentral-") && !m.id.startsWith("allmanga-") && !m.id.startsWith("asura-"));
+      if (sf === "mangakatana") {
+        combined = combined.filter((m) => m.id.startsWith("mangakatana-"));
+      } else if (sf === "mangadex") {
+        combined = combined.filter((m) => !m.id.startsWith("mangapill-") && !m.id.startsWith("weebcentral-") && !m.id.startsWith("allmanga-") && !m.id.startsWith("asura-") && !m.id.startsWith("mangakatana-"));
       } else if (sf === "mangapill") {
         combined = combined.filter((m) => m.id.startsWith("mangapill-"));
       } else if (sf === "weebcentral") {

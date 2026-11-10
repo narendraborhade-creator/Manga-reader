@@ -120,10 +120,13 @@ export async function GET(
         );
       }
 
-      const richMeta = await fetchRichMangaMetadata(asuraData.title).catch(() => ({ source: "NONE", data: null }));
+      const [richMeta, katanaMatches] = await Promise.all([
+        fetchRichMangaMetadata(asuraData.title).catch(() => ({ source: "NONE", data: null })),
+        searchMangaKatana(asuraData.title, 3).catch(() => []),
+      ]);
       const meta = (richMeta?.data || {}) as any;
 
-      const allChapters = asuraData.chapters.map((ch) => ({
+      let allChapters = asuraData.chapters.map((ch) => ({
         externalChapId: ch.id,
         mangaExternalId: asuraData.id,
         mangaTitle: asuraData.title,
@@ -138,6 +141,29 @@ export async function GET(
         sourceType: "ASURA" as any,
         pageCount: 0,
       }));
+
+      const matchedKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, [asuraData.title, ...(asuraData.altTitles || [])]));
+      if (matchedKatana) {
+        const katanaData = await fetchMangaKatanaDetails(matchedKatana.id).catch(() => null);
+        if (katanaData?.chapters?.length) {
+          const katanaNorm = katanaData.chapters.map((ch) => ({
+            externalChapId: ch.id,
+            mangaExternalId: asuraData.id,
+            mangaTitle: asuraData.title,
+            coverUrl: asuraData.coverUrl,
+            chapterNumber: ch.chapterNumber,
+            volumeNumber: null,
+            title: ch.title,
+            language: "en",
+            scanlator: "Mihon / MangaKatana Stream",
+            publishedAt: new Date().toISOString(),
+            sourceId: "mangakatana",
+            sourceType: "MANGAKATANA" as any,
+            pageCount: 0,
+          }));
+          allChapters = [...allChapters, ...katanaNorm];
+        }
+      }
 
       const chapterGroups = unifyAndSortChapters(allChapters as any);
 
@@ -179,9 +205,10 @@ export async function GET(
         );
       }
 
-      // Concurrently check WeebCentral & AniList to maximize chapter count & rich banners
-      const [weebMatches, richMeta] = await Promise.all([
+      // Concurrently check WeebCentral, MangaKatana & AniList to maximize chapter count & rich banners
+      const [weebMatches, katanaMatches, richMeta] = await Promise.all([
         searchWeebCentral(pillData.title, 3).catch(() => []),
+        searchMangaKatana(pillData.title, 3).catch(() => []),
         fetchRichMangaMetadata(pillData.title).catch(() => ({ source: "NONE", data: null })),
       ]);
 
@@ -223,6 +250,32 @@ export async function GET(
               pageCount: 0,
             }));
             allChapters = [...allChapters, ...weebNorm];
+          }
+        }
+      }
+
+      // If MangaKatana has a strict match, merge its complete archives
+      if (katanaMatches.length > 0) {
+        const targetKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, [pillData.title]));
+        if (targetKatana) {
+          const katanaData = await fetchMangaKatanaDetails(targetKatana.id).catch(() => null);
+          if (katanaData?.chapters?.length) {
+            const katanaNorm = katanaData.chapters.map((ch) => ({
+              externalChapId: ch.id,
+              mangaExternalId: pillData.id,
+              mangaTitle: pillData.title,
+              coverUrl: pillData.coverUrl,
+              chapterNumber: ch.chapterNumber,
+              volumeNumber: null,
+              title: ch.title,
+              language: "en",
+              scanlator: "Mihon / MangaKatana Stream",
+              publishedAt: new Date().toISOString(),
+              sourceId: "mangakatana",
+              sourceType: "MANGAKATANA" as any,
+              pageCount: 0,
+            }));
+            allChapters = [...allChapters, ...katanaNorm];
           }
         }
       }
@@ -315,9 +368,10 @@ export async function GET(
         );
       }
 
-      // Concurrently check MangaPill & AniList
-      const [pillMatches, richMeta] = await Promise.all([
+      // Concurrently check MangaPill, MangaKatana & AniList
+      const [pillMatches, katanaMatches, richMeta] = await Promise.all([
         searchMangaPill(weebData.title, 3).catch(() => []),
+        searchMangaKatana(weebData.title, 3).catch(() => []),
         fetchRichMangaMetadata(weebData.title).catch(() => ({ source: "NONE", data: null })),
       ]);
 
@@ -362,6 +416,31 @@ export async function GET(
         }
       }
 
+      if (katanaMatches.length > 0) {
+        const targetKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, [weebData.title]));
+        if (targetKatana) {
+          const katanaData = await fetchMangaKatanaDetails(targetKatana.id).catch(() => null);
+          if (katanaData?.chapters?.length) {
+            const katanaNorm = katanaData.chapters.map((ch) => ({
+              externalChapId: ch.id,
+              mangaExternalId: weebData.id,
+              mangaTitle: weebData.title,
+              coverUrl: weebData.coverUrl,
+              chapterNumber: ch.chapterNumber,
+              volumeNumber: null,
+              title: ch.title,
+              language: "en",
+              scanlator: "Mihon / MangaKatana Stream",
+              publishedAt: new Date().toISOString(),
+              sourceId: "mangakatana",
+              sourceType: "MANGAKATANA" as any,
+              pageCount: 0,
+            }));
+            allChapters = [...allChapters, ...katanaNorm];
+          }
+        }
+      }
+
       const chapterGroups = unifyAndSortChapters(allChapters as any);
       const meta = (richMeta?.data || {}) as any;
 
@@ -400,21 +479,24 @@ export async function GET(
 
       const candidateTitles = [allData.title, ...(allData.altTitles || [])].filter(Boolean) as string[];
 
-      const [asuraMatches, pillMatches, weebMatches, richMeta] = await Promise.all([
+      const [asuraMatches, pillMatches, weebMatches, katanaMatches, richMeta] = await Promise.all([
         searchAsura(allData.title, 5).catch(() => []),
         searchMangaPill(allData.title, 5).catch(() => []),
         searchWeebCentral(allData.title, 5).catch(() => []),
+        searchMangaKatana(allData.title, 5).catch(() => []),
         fetchRichMangaMetadata(allData.title).catch(() => ({ source: "NONE", data: null })),
       ]);
 
       const matchedAsura = asuraMatches.find((m) => isStrictTitleMatch(m.title, candidateTitles));
       const matchedPill = pillMatches.find((m) => isStrictTitleMatch(m.title, candidateTitles));
       const matchedWeeb = weebMatches.find((w) => isStrictTitleMatch(w.title, candidateTitles));
+      const matchedKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, candidateTitles));
 
-      const [asuraData, pillData, weebData] = await Promise.all([
+      const [asuraData, pillData, weebData, katanaData] = await Promise.all([
         matchedAsura ? fetchAsuraDetails(matchedAsura.id).catch(() => null) : null,
         matchedPill ? fetchMangaPillDetails(matchedPill.id).catch(() => null) : null,
         matchedWeeb ? fetchWeebCentralDetails(matchedWeeb.id).catch(() => null) : null,
+        matchedKatana ? fetchMangaKatanaDetails(matchedKatana.id).catch(() => null) : null,
       ]);
 
       const meta = (richMeta?.data || {}) as any;
@@ -423,6 +505,8 @@ export async function GET(
           ? meta.coverImage.extraLarge
           : (meta.coverImage?.large && meta.coverImage.large.includes("anilist.co"))
           ? meta.coverImage.large
+          : (katanaData?.coverUrl && !katanaData.coverUrl.includes("placeholder"))
+          ? katanaData.coverUrl
           : (weebData?.coverUrl && !weebData.coverUrl.includes("placeholder"))
           ? weebData.coverUrl
           : (pillData?.coverUrl && !pillData.coverUrl.includes("placeholder"))
@@ -502,6 +586,25 @@ export async function GET(
           pageCount: 0,
         }));
         allChapters = [...allChapters, ...weebNorm];
+      }
+
+      if (katanaData?.chapters?.length) {
+        const katanaNorm = katanaData.chapters.map((ch) => ({
+          externalChapId: ch.id,
+          mangaExternalId: allData.id,
+          mangaTitle: allData.title,
+          coverUrl: bestCover,
+          chapterNumber: ch.chapterNumber,
+          volumeNumber: null,
+          title: ch.title,
+          language: "en",
+          scanlator: "Mihon / MangaKatana Stream",
+          publishedAt: new Date().toISOString(),
+          sourceId: "mangakatana",
+          sourceType: "MANGAKATANA" as any,
+          pageCount: 0,
+        }));
+        allChapters = [...allChapters, ...katanaNorm];
       }
 
       const chapterGroups = unifyAndSortChapters(allChapters as any);

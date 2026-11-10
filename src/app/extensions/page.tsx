@@ -41,6 +41,14 @@ const CORE_ENGINES = [
     badge: "Aggregator",
   },
   {
+    id: "mangakatana",
+    name: "MangaKatana Engine",
+    lang: "EN",
+    status: "Active & Verified",
+    description: "High-coverage manga and manhwa engine with complete 100-250+ chapter sets and direct token streaming.",
+    badge: "High Coverage",
+  },
+  {
     id: "asura",
     name: "Asura Scans Engine",
     lang: "EN",
@@ -342,7 +350,7 @@ export default function ExtensionsPage() {
                     coverUrl={manga.coverUrl}
                     status={manga.status}
                     genres={manga.tags}
-                    latestChapter={(manga as any).totalChapters ? `CH. ${(manga as any).totalChapters}` : undefined}
+                    latestChapter={(manga as any).totalChapters || undefined}
                   />
                 ))}
               </div>

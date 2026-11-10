@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { NormalizedChapter } from "./mangadex";
 
 export interface MangaKatanaItem {
   id: string; // e.g. "mangakatana-worlds-strongest-troll.26644"
@@ -283,5 +284,73 @@ export async function fetchMangaKatanaPages(chapterId: string): Promise<MangaKat
   } catch (err) {
     console.error("fetchMangaKatanaPages error:", err);
     return null;
+  }
+}
+
+/**
+ * Fetches latest updated chapters from MangaKatana
+ */
+export async function fetchMangaKatanaLatestChapters(limit = 24): Promise<NormalizedChapter[]> {
+  try {
+    const url = `${BASE_URL}/latest`;
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Referer: `${BASE_URL}/`,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const items: NormalizedChapter[] = [];
+    $("#book_list .item").each((_, el) => {
+      if (items.length >= limit) return false;
+
+      const a = $(el).find("h3.title a");
+      const rawTitle = a.text().trim();
+      const title = rawTitle
+        .replace(/\s*-\s*update\s+chapter\s+.*$/i, "")
+        .replace(/\s*-\s*update.*$/i, "")
+        .trim() || rawTitle;
+      const href = a.attr("href") || "";
+      const slug = href.split("/manga/")[1];
+      if (!title || !slug) return;
+
+      const cover =
+        $(el).find(".wrap_img picture source").first().attr("srcset") ||
+        $(el).find(".wrap_img img").attr("src") ||
+        "/placeholder-manga.jpg";
+
+      const latestChA = $(el).find("div.chapters .chapter a").first();
+      const latestChTitle = latestChA.text().trim();
+      const latestChHref = latestChA.attr("href") || "";
+      const rawPath = latestChHref.replace(/^https?:\/\/mangakatana\.com\/manga\//i, "");
+
+      const chNum = extractChapterNum(latestChTitle, latestChHref);
+
+      items.push({
+        externalChapId: `mangakatana-${rawPath || `${slug}/c${chNum}`}`,
+        mangaExternalId: `mangakatana-${slug}`,
+        mangaTitle: title,
+        coverUrl: cover,
+        chapterNumber: chNum,
+        volumeNumber: null,
+        title: latestChTitle || `Chapter ${chNum}`,
+        language: "en",
+        scanlator: "Mihon / MangaKatana Stream",
+        publishedAt: new Date().toISOString(),
+        sourceId: "mangakatana",
+        sourceType: "MANGAKATANA",
+        pageCount: 0,
+      });
+    });
+
+    return items;
+  } catch (err) {
+    console.error("fetchMangaKatanaLatestChapters failed:", err);
+    return [];
   }
 }

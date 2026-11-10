@@ -1,4 +1,6 @@
-import { NormalizedChapter } from "./adapters/mangadex";
+import { fetchMangaDexLatestChapters, NormalizedChapter } from "./adapters/mangadex";
+import { fetchMangaKatanaLatestChapters } from "./adapters/mangakatana";
+import { fetchMangaPillLatestChapters } from "./adapters/mangapill";
 
 export interface ChapterGroup {
   chapterNumber: number;
@@ -83,10 +85,12 @@ export function unifyAndSortChapters(
     // Prioritize high-reliability direct streaming CDNs (Asura, MangaPill, WeebCentral), then hosted MangaDex
     list.sort((a, b) => {
       const getPriority = (c: NormalizedChapter) => {
+        if (c.externalUrl) return -1;
+        if ((c.sourceType as string) === "MANGAKATANA") return 6;
         if ((c.sourceType as string) === "ASURA") return 5;
         if (c.sourceType === "MANGAPILL") return 4;
         if (c.sourceType === "WEEBCENTRAL") return 3;
-        if (c.sourceType === "MANGADEX" && !c.externalUrl) return 2;
+        if (c.sourceType === "MANGADEX") return 2;
         if (c.sourceType === "ALLMANGA") return 1;
         return 0;
       };
@@ -107,4 +111,51 @@ export function unifyAndSortChapters(
 
   // Sort descending for the Chapter Ledger UI (latest chapter at top)
   return groups.sort((a, b) => b.chapterNumber - a.chapterNumber);
+}
+
+/**
+ * Concurrently queries MangaKatana, MangaPill, and MangaDex for latest releases,
+ * interleaving sources and deduplicating by title to guarantee a rich, non-failing latest feed.
+ */
+export async function fetchUnifiedLatestChapters(limit = 24, lang = "en"): Promise<NormalizedChapter[]> {
+  try {
+    const [katanaChapters, pillChapters, dexChapters] = await Promise.all([
+      fetchMangaKatanaLatestChapters(limit).catch(() => []),
+      fetchMangaPillLatestChapters(limit).catch(() => []),
+      fetchMangaDexLatestChapters(limit, lang).catch(() => []),
+    ]);
+
+    const seen = new Set<string>();
+    const unified: NormalizedChapter[] = [];
+
+    const maxLen = Math.max(katanaChapters.length, pillChapters.length, dexChapters.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (katanaChapters[i]) {
+        const k = cleanKey(katanaChapters[i].mangaTitle);
+        if (k && !seen.has(k) && katanaChapters[i].coverUrl && !katanaChapters[i].coverUrl.includes("placeholder")) {
+          seen.add(k);
+          unified.push(katanaChapters[i]);
+        }
+      }
+      if (pillChapters[i]) {
+        const k = cleanKey(pillChapters[i].mangaTitle);
+        if (k && !seen.has(k) && pillChapters[i].coverUrl && !pillChapters[i].coverUrl.includes("placeholder")) {
+          seen.add(k);
+          unified.push(pillChapters[i]);
+        }
+      }
+      if (dexChapters[i]) {
+        const k = cleanKey(dexChapters[i].mangaTitle);
+        if (k && !seen.has(k) && dexChapters[i].coverUrl && !dexChapters[i].coverUrl.includes("placeholder")) {
+          seen.add(k);
+          unified.push(dexChapters[i]);
+        }
+      }
+    }
+
+    return unified.slice(0, limit);
+  } catch (err) {
+    console.error("fetchUnifiedLatestChapters error:", err);
+    return [];
+  }
 }

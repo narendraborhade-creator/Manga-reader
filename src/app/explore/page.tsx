@@ -35,6 +35,7 @@ const PRESETS = [
 
 const SOURCES = [
   { id: "all", label: "All Sources (Unified)" },
+  { id: "mangakatana", label: "MangaKatana (High Coverage)" },
   { id: "asura", label: "Asura Scans (Manhwa)" },
   { id: "weebcentral", label: "WeebCentral" },
   { id: "mangapill", label: "MangaPill" },
@@ -262,7 +263,7 @@ function ExploreContent() {
                 coverUrl={m.coverUrl}
                 status={m.status}
                 genres={m.tags}
-                latestChapter={(m as any).totalChapters ? `CH. ${(m as any).totalChapters}` : undefined}
+                latestChapter={(m as any).totalChapters || undefined}
                 score={(m as any).score}
               />
             ))}

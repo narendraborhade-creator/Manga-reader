@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { NormalizedChapter } from "./mangadex";
 
 export interface MangaPillItem {
   id: string; // e.g. "mangapill-2/one-piece"
@@ -216,5 +217,70 @@ export async function fetchMangaPillChapterPages(
   } catch (err) {
     console.error("MangaPill chapter pages error:", err);
     return null;
+  }
+}
+
+/**
+ * Fetches latest updated chapters from MangaPill
+ */
+export async function fetchMangaPillLatestChapters(limit = 24): Promise<NormalizedChapter[]> {
+  try {
+    const res = await fetch(`${BASE_URL}/`, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        Referer: `${BASE_URL}/`,
+      },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const items: NormalizedChapter[] = [];
+    const seenManga = new Set<string>();
+
+    $("div.grid > div").each((_, el) => {
+      if (items.length >= limit) return false;
+
+      const mangaA = $(el).find('a[href^="/manga/"]');
+      const mangaHref = mangaA.attr("href") || "";
+      const mangaSlug = mangaHref.replace(/^\/manga\//, "");
+      const title = $(el).find(".font-bold, .line-clamp-2").first().text().trim() || mangaA.text().trim();
+      if (!title || !mangaSlug || seenManga.has(mangaSlug)) return;
+
+      const img = $(el).find("img").attr("data-src") || $(el).find("img").attr("src") || "";
+
+      const chA = $(el).find('a[href^="/chapters/"]').first();
+      const chHref = chA.attr("href") || "";
+      const chRawId = chHref.replace(/^\/chapters\//, "");
+      const chTitle = chA.text().trim();
+      if (!chRawId) return;
+
+      const match = chHref.match(/chapter-([0-9.]+)/i) || chTitle.match(/(?:chapter|ch\.|ch)\s*([0-9.]+)/i);
+      const chNum = match ? parseFloat(match[1]) : 1;
+
+      seenManga.add(mangaSlug);
+      items.push({
+        externalChapId: `mangapill-${chRawId}`,
+        mangaExternalId: `mangapill-${mangaSlug}`,
+        mangaTitle: title,
+        coverUrl: img || "/placeholder-manga.jpg",
+        chapterNumber: chNum,
+        volumeNumber: null,
+        title: chTitle || `Chapter ${chNum}`,
+        language: "en",
+        scanlator: "Mihon / MangaPill Mirror",
+        publishedAt: new Date().toISOString(),
+        sourceId: "mangapill",
+        sourceType: "MANGAPILL",
+        pageCount: 0,
+      });
+    });
+
+    return items;
+  } catch (err) {
+    console.error("fetchMangaPillLatestChapters failed:", err);
+    return [];
   }
 }

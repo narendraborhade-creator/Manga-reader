@@ -28,6 +28,7 @@ export const LatestChapterCard: React.FC<LatestChapterCardProps> = ({
     (coverUrl.includes("uploads.mangadex.org") ||
       coverUrl.includes("anilist.co") ||
       coverUrl.includes("s4.anilist.co") ||
+      coverUrl.includes("mangakatana.com") ||
       coverUrl.includes("temp.compsci88.com"));
 
   const resolvedSrc = (() => {
@@ -52,7 +53,7 @@ export const LatestChapterCard: React.FC<LatestChapterCardProps> = ({
     }
   };
 
-  const cleanNum = String(chapterNumber).replace(/^(ch\.|ch|chapter)\s*/i, "").trim();
+  const cleanNum = String(chapterNumber).replace(/^(ch\.|ch|chapter|\s)+/gi, "").trim();
 
   return (
     <div className="group flex flex-col h-full bg-[#121622] border border-[#23293e] hover:border-indigo-500/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10">

@@ -207,6 +207,38 @@ export async function GET(
           }
         }
 
+        // 2.5 Try MangaKatana (complete 100-200+ chapter archives)
+        const katanaMatches = await searchMangaKatana(title, 5).catch(() => []);
+        const matchedKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, candidateTitles));
+        if (matchedKatana) {
+          const katanaData = await fetchMangaKatanaDetails(matchedKatana.id).catch(() => null);
+          const matchedCh = katanaData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - targetNum) < 0.05 || (targetNum === 0 && (c.chapterNumber === 1 || c.title.toLowerCase().includes('prologue') || c.title.toLowerCase().includes('chapter 0')))
+          );
+          if (matchedCh) {
+            const katanaPages = await fetchMangaKatanaPages(matchedCh.id);
+            if (katanaPages && katanaPages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  mangaId: `allmanga-${mangaId}`,
+                  mangaTitle: title,
+                  chapterNumber: targetNum,
+                  chapterTitle: `Chapter ${chapterString}`,
+                  baseUrl: "https://mangakatana.com",
+                  hash: "",
+                  quality,
+                  files: katanaPages.pages,
+                  proxiedPages: katanaPages.proxiedPages,
+                  directPages: katanaPages.directPages,
+                  sourceName: "MangaKatana Stream",
+                },
+              });
+            }
+          }
+        }
+
         // 3. Try MangaPill (strictly verifying title & exact chapter number)
         const pillMatches = await searchMangaPill(title, 5).catch(() => []);
         const matchedPill = pillMatches.find((p) => isStrictTitleMatch(p.title, candidateTitles));
@@ -451,6 +483,38 @@ export async function GET(
                   proxiedPages: pages.proxiedPages,
                   directPages: pages.pages,
                   sourceName: "MangaPill Mirror",
+                },
+              });
+            }
+          }
+        }
+
+        // 4. Try MangaKatana (massive 100-200+ chapter archives)
+        const katanaMatches = await searchMangaKatana(title, 5).catch(() => []);
+        const matchedKatana = katanaMatches.find((k) => isStrictTitleMatch(k.title, candidateTitles));
+        if (matchedKatana) {
+          const katanaData = await fetchMangaKatanaDetails(matchedKatana.id).catch(() => null);
+          const matchedCh = katanaData?.chapters.find(
+            (c) => Math.abs(c.chapterNumber - chNum) < 0.05
+          );
+          if (matchedCh) {
+            const pages = await fetchMangaKatanaPages(matchedCh.id);
+            if (pages && pages.pages.length > 0) {
+              return NextResponse.json({
+                success: true,
+                data: {
+                  chapterId: id,
+                  mangaId: mangaRel?.id || id,
+                  mangaTitle: title,
+                  chapterNumber: chNum,
+                  chapterTitle: `Chapter ${chNum}`,
+                  baseUrl: "https://mangakatana.com",
+                  hash: "",
+                  quality,
+                  files: pages.pages,
+                  proxiedPages: pages.proxiedPages,
+                  directPages: pages.pages,
+                  sourceName: "MangaKatana Stream",
                 },
               });
             }

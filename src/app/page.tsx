@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { fetchMangaDexLatestChapters, searchMangaDex } from "@/lib/adapters/mangadex";
+import { fetchUnifiedLatestChapters } from "@/lib/aggregator";
 import { fetchAniListTrending, fetchAniListPopular } from "@/lib/adapters/anilist";
 import { searchMangaPill } from "@/lib/adapters/mangapill";
 import { searchWeebCentral } from "@/lib/adapters/weebcentral";
@@ -87,7 +88,7 @@ export default async function HomePage() {
     aniListPopular,
   ] = await Promise.all([
     fetchAniListTrending(8).catch(() => []),
-    fetchMangaDexLatestChapters(18, "en").catch(() => []),
+    fetchUnifiedLatestChapters(18, "en").catch(() => []),
     Promise.all([
       fetchCuratedManga("One Piece"),
       fetchCuratedManga("Jujutsu Kaisen"),

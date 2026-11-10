@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchMangaDexLatestChapters } from "@/lib/adapters/mangadex";
+import { fetchUnifiedLatestChapters } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
 
@@ -8,12 +8,12 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(req.nextUrl.searchParams.get("limit") || "32", 10);
     const lang = req.nextUrl.searchParams.get("lang") || "en";
 
-    const chapters = await fetchMangaDexLatestChapters(limit, lang);
+    const unified = await fetchUnifiedLatestChapters(limit, lang);
 
     return NextResponse.json({
       success: true,
-      data: chapters,
-      count: chapters.length,
+      data: unified,
+      count: unified.length,
     });
   } catch (error: any) {
     return NextResponse.json(

@@ -75,10 +75,10 @@ export async function searchAllManga(
 
     const mapped = edges.map((item: any) => {
       let cover = "/placeholder-manga.jpg";
-      if (item.thumbnail) {
+      if (item.thumbnail && !item.thumbnail.includes("allanime.site")) {
         cover = item.thumbnail.startsWith("http")
           ? item.thumbnail
-          : `${ALLMANGA_IMG_BASE}/${item.thumbnail}`;
+          : "/placeholder-manga.jpg";
       }
 
       return {
@@ -162,10 +162,10 @@ export async function fetchAllMangaDetails(rawId: string) {
     if (!m) return null;
 
     let cover = "/placeholder-manga.jpg";
-    if (m.thumbnail) {
+    if (m.thumbnail && !m.thumbnail.includes("allanime.site")) {
       cover = m.thumbnail.startsWith("http")
         ? m.thumbnail
-        : `${ALLMANGA_IMG_BASE}/${m.thumbnail}`;
+        : "/placeholder-manga.jpg";
     }
 
     const chapterStrings: string[] = m.availableChaptersDetail?.sub ?? [];
@@ -251,9 +251,10 @@ export async function fetchAllMangaChapterPages(
     const pages: string[] = rawUrls
       .map((item: any) => {
         const urlStr: string = typeof item === "string" ? item : item.url;
-        if (!urlStr) return "";
+        if (!urlStr || urlStr.includes("allanime.site")) return "";
         if (urlStr.startsWith("http")) return urlStr;
-        return `${ALLMANGA_IMG_BASE}/${urlStr}`;
+        // Avoid parked allanime.site domain
+        return "";
       })
       .filter(Boolean);
 

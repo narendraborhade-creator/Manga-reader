@@ -40,6 +40,11 @@ export const ImageWithFallback: React.FC<ImageWithFallbackProps> = ({
       setCurrentSrc(fallbackSrc);
       setIsLoading(true);
       setHasError(false);
+    } else if (!hasTriedFallback && currentSrc.startsWith("http") && !currentSrc.includes("/api/proxy/image")) {
+      setHasTriedFallback(true);
+      setCurrentSrc(`/api/proxy/image?url=${encodeURIComponent(currentSrc)}`);
+      setIsLoading(true);
+      setHasError(false);
     } else {
       setIsLoading(false);
       setHasError(true);

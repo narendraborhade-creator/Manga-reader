@@ -85,7 +85,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
 
   const targetHref = `/manga/${id}`;
   const cleanChapterNumber = latestChapter !== undefined
-    ? String(latestChapter).replace(/^(ch\.|ch|chapter)\s*/i, "").trim()
+    ? String(latestChapter).replace(/^(ch\.|ch|chapter|\s)+/gi, "").trim()
     : "";
 
   return (
