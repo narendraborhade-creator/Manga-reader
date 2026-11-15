@@ -6,7 +6,7 @@ import { searchAllManga } from "@/lib/adapters/allmanga";
 import { searchAsura } from "@/lib/adapters/asura";
 import { searchMangaKatana } from "@/lib/adapters/mangakatana";
 import { fetchAniListPopular } from "@/lib/adapters/anilist";
-import { isNovelTitle, isDoujinshiOrSpinoff, isRelevantToSearch, cleanKey } from "@/lib/aggregator";
+import { isNovelTitle, isDoujinshiOrSpinoff, isRelevantToSearch, cleanKey, getSearchQueryVariants } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
 
@@ -72,19 +72,29 @@ export async function GET(req: NextRequest) {
     const queryAllowsNovels = cleanQuery.toLowerCase().includes("novel");
     const queryAllowsDoujin = /\b(dj|doujin|doujinshi|hentai)\b/i.test(cleanQuery);
 
+    // Multi-pass query expansion: generates natural search variants to resolve rigid upstream search limitations
+    const targetQueries = getSearchQueryVariants(cleanQuery).slice(0, 3);
+
     // 2. Parallel multi-engine search across high-reliability primary sources
-    const [katanaResults, weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
-      searchMangaKatana(cleanQuery, 24).catch(() => []),
-      searchWeebCentral(cleanQuery, 24).catch(() => []),
-      searchMangaDex(cleanQuery, 24).catch(() => []),
-      searchMangaPill(cleanQuery, 24).catch(() => []),
-      searchAsura(cleanQuery, 24).catch(() => []),
+    const [katanaResultsArr, weebResultsArr, dexResultsArr, pillResultsArr, asuraResultsArr] = await Promise.all([
+      Promise.all(targetQueries.map((q) => searchMangaKatana(q, 24).catch(() => []))),
+      Promise.all(targetQueries.map((q) => searchWeebCentral(q, 24).catch(() => []))),
+      Promise.all(targetQueries.map((q) => searchMangaDex(q, 24).catch(() => []))),
+      Promise.all(targetQueries.map((q) => searchMangaPill(q, 24).catch(() => []))),
+      Promise.all(targetQueries.map((q) => searchAsura(q, 24).catch(() => []))),
     ]);
+
+    const katanaResults = katanaResultsArr.flat();
+    const weebResults = weebResultsArr.flat();
+    const dexResults = dexResultsArr.flat();
+    const pillResults = pillResultsArr.flat();
+    const asuraResults = asuraResultsArr.flat();
 
     // Only query AllManga if explicitly filtered or if top 5 sources returned 0 results
     let allResults: any[] = [];
     if (sourceFilter === "allmanga" || (katanaResults.length === 0 && weebResults.length === 0 && dexResults.length === 0 && pillResults.length === 0)) {
-      allResults = await searchAllManga(cleanQuery, 16).catch(() => []);
+      const allResultsArr = await Promise.all(targetQueries.map((q) => searchAllManga(q, 16).catch(() => [])));
+      allResults = allResultsArr.flat();
     }
 
     // Unified deduplication map keyed by normalized title
