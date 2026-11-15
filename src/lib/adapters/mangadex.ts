@@ -345,9 +345,10 @@ export async function searchMangaDex(
   limit = 24
 ): Promise<MangaDexManga[]> {
   try {
+    const orderKey = query.trim() ? "order[relevance]" : "order[followedCount]";
     const params = new URLSearchParams({
       limit: String(limit),
-      "order[followedCount]": "desc",
+      [orderKey]: "desc",
     });
     params.append("contentRating[]", "safe");
     params.append("contentRating[]", "suggestive");

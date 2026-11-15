@@ -233,7 +233,7 @@ export async function fetchWeebCentralChapterPages(
     const directPages: string[] = $("img")
       .map((_, el) => $(el).attr("src"))
       .get()
-      .filter((url): url is string => Boolean(url));
+      .filter((url): url is string => Boolean(url) && url.startsWith("http") && !url.includes("brand.png") && !url.includes("404.png") && !url.includes("/static/"));
 
     if (!directPages.length) return null;
 

@@ -40,7 +40,8 @@ const USER_AGENT =
 export async function searchAsura(query: string, limit = 24): Promise<AsuraItem[]> {
   try {
     if (!query.trim()) return [];
-    const res = await fetch(`${ASURA_API}/api/search?q=${encodeURIComponent(query.trim())}`, {
+    const searchUrl = `${ASURA_API}/api/series?page=1&name=${encodeURIComponent(query.trim())}`;
+    const res = await fetch(searchUrl, {
       headers: {
         "User-Agent": USER_AGENT,
         Referer: `${ASURA_BASE}/`,

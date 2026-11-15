@@ -6,31 +6,9 @@ import { searchAllManga } from "@/lib/adapters/allmanga";
 import { searchAsura } from "@/lib/adapters/asura";
 import { searchMangaKatana } from "@/lib/adapters/mangakatana";
 import { fetchAniListPopular } from "@/lib/adapters/anilist";
-import { isNovelTitle } from "@/lib/aggregator";
+import { isNovelTitle, isDoujinshiOrSpinoff, isRelevantToSearch, cleanKey } from "@/lib/aggregator";
 
 export const dynamic = "force-dynamic";
-
-function normalizeKey(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[’‘`]/g, "'")
-    .replace(/\s*\(colored\)/gi, "")
-    .replace(/\s*\(official\)/gi, "")
-    .replace(/\s*\(digital colored comics\)/gi, " colored")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function isDoujinshiOrSpinoff(title: string): boolean {
-  const t = title.toLowerCase();
-  return (
-    /\b(dj|doujin|doujinshi|omake|futanari|hentai|fan-comic|fancomic|anthology)\b/i.test(t) ||
-    t.includes(" dj ") ||
-    t.includes(" dj -") ||
-    t.includes("dj -") ||
-    t.includes("(dj)") ||
-    t.includes("fan comic")
-  );
-}
 
 export async function GET(req: NextRequest) {
   try {
@@ -76,8 +54,8 @@ export async function GET(req: NextRequest) {
       const seen = new Set<string>();
       const deduped: any[] = [];
       for (const item of popularItems) {
-        if (isNovelTitle(item.title)) continue;
-        const k = normalizeKey(item.title);
+        if (isNovelTitle(item.title) || isDoujinshiOrSpinoff(item.title)) continue;
+        const k = cleanKey(item.title);
         if (k && !seen.has(k)) {
           seen.add(k);
           deduped.push(item);
@@ -92,6 +70,7 @@ export async function GET(req: NextRequest) {
     }
 
     const queryAllowsNovels = cleanQuery.toLowerCase().includes("novel");
+    const queryAllowsDoujin = /\b(dj|doujin|doujinshi|hentai)\b/i.test(cleanQuery);
 
     // 2. Parallel multi-engine search across high-reliability primary sources
     const [katanaResults, weebResults, dexResults, pillResults, asuraResults] = await Promise.all([
@@ -113,8 +92,8 @@ export async function GET(req: NextRequest) {
 
     // Priority 0: MangaKatana (huge 100-200+ chapter archives for manhwa and webtoons)
     for (const katana of katanaResults) {
-      if (!queryAllowsNovels && isNovelTitle(katana.title)) continue;
-      const key = normalizeKey(katana.title);
+      if (!isRelevantToSearch(katana.title, katana.altTitles || [], cleanQuery)) continue;
+      const key = cleanKey(katana.title);
       if (!key) continue;
 
       unifiedMap.set(key, {
@@ -133,14 +112,18 @@ export async function GET(req: NextRequest) {
 
     // Priority 1: WeebCentral (huge canon archives, 1000+ chapters, verified unblocked WebP CDN)
     for (const weeb of weebResults) {
-      if (!queryAllowsNovels && isNovelTitle(weeb.title)) continue;
-      const key = normalizeKey(weeb.title);
+      if (!isRelevantToSearch(weeb.title, [], cleanQuery)) continue;
+      const key = cleanKey(weeb.title);
       if (!key) continue;
 
       const existing = unifiedMap.get(key);
       if (existing) {
         if (weeb.totalChapters && (!existing.totalChapters || weeb.totalChapters > existing.totalChapters)) {
+          existing.id = weeb.id;
           existing.totalChapters = weeb.totalChapters;
+        }
+        if ((!existing.coverUrl || existing.coverUrl.includes("placeholder")) && weeb.coverUrl) {
+          existing.coverUrl = weeb.coverUrl;
         }
       } else {
         unifiedMap.set(key, {
@@ -160,8 +143,8 @@ export async function GET(req: NextRequest) {
 
     // Priority 2: MangaDex (official verified API & high-res covers)
     for (const dex of dexResults) {
-      if (!queryAllowsNovels && isNovelTitle(dex.title)) continue;
-      const key = normalizeKey(dex.title);
+      if (!isRelevantToSearch(dex.title, dex.altTitles || [], cleanQuery)) continue;
+      const key = cleanKey(dex.title);
       if (!key) continue;
 
       const existing = unifiedMap.get(key);
@@ -177,6 +160,7 @@ export async function GET(req: NextRequest) {
         }
         const dexCh = (dex as any).totalChapters || 0;
         if (dexCh && (!existing.totalChapters || dexCh > existing.totalChapters)) {
+          existing.id = dex.id;
           existing.totalChapters = dexCh;
         }
       } else {
@@ -200,8 +184,8 @@ export async function GET(req: NextRequest) {
 
     // Priority 3: MangaPill (high-speed mirror)
     for (const pill of pillResults) {
-      if (!queryAllowsNovels && isNovelTitle(pill.title)) continue;
-      const key = normalizeKey(pill.title);
+      if (!isRelevantToSearch(pill.title, [], cleanQuery)) continue;
+      const key = cleanKey(pill.title);
       if (!key) continue;
 
       const existing = unifiedMap.get(key);
@@ -210,6 +194,7 @@ export async function GET(req: NextRequest) {
           existing.coverUrl = pill.coverUrl;
         }
         if (pill.totalChapters && (!existing.totalChapters || pill.totalChapters > existing.totalChapters)) {
+          existing.id = pill.id;
           existing.totalChapters = pill.totalChapters;
         }
         if (pill.genres?.length) {
@@ -233,13 +218,14 @@ export async function GET(req: NextRequest) {
 
     // Priority 4: Asura Scans (unblocked HD manhwa stream)
     for (const asuraItem of asuraResults) {
-      if (!queryAllowsNovels && isNovelTitle(asuraItem.title)) continue;
-      const key = normalizeKey(asuraItem.title);
+      if (!isRelevantToSearch(asuraItem.title, asuraItem.altTitles || [], cleanQuery)) continue;
+      const key = cleanKey(asuraItem.title);
       if (!key) continue;
 
       const existing = unifiedMap.get(key);
       if (existing) {
         if (asuraItem.totalChapters && (!existing.totalChapters || asuraItem.totalChapters > existing.totalChapters)) {
+          existing.id = asuraItem.id;
           existing.totalChapters = asuraItem.totalChapters;
         }
         if (asuraItem.genres?.length) {
@@ -263,8 +249,8 @@ export async function GET(req: NextRequest) {
 
     // Priority 5: AllManga (only non-placeholder, non-doujinshi items that are not in existing sources)
     for (const allItem of allResults) {
-      if (!queryAllowsNovels && isNovelTitle(allItem.title)) continue;
-      const key = normalizeKey(allItem.title);
+      if (!isRelevantToSearch(allItem.title, allItem.englishName ? [allItem.englishName] : [], cleanQuery)) continue;
+      const key = cleanKey(allItem.title);
       if (!key) continue;
 
       const existing = unifiedMap.get(key);
@@ -275,8 +261,8 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      // Skip entries with broken placeholder covers
-      if (allItem.coverUrl === "/placeholder-manga.jpg" && !sourceFilter) continue;
+      // Skip entries with broken placeholder covers unless specifically querying AllManga
+      if (allItem.coverUrl === "/placeholder-manga.jpg" && sourceFilter !== "allmanga") continue;
 
       unifiedMap.set(key, {
         id: allItem.id,
@@ -294,9 +280,14 @@ export async function GET(req: NextRequest) {
 
     let combined = Array.from(new Set(unifiedMap.values()));
 
-    // Filter out light novels, web novels, and book versions unless explicitly queried
+    // Filter out light novels unless explicitly requested
     if (!queryAllowsNovels) {
       combined = combined.filter((m) => !isNovelTitle(m.title));
+    }
+
+    // Filter out doujinshis unless explicitly requested
+    if (!queryAllowsDoujin) {
+      combined = combined.filter((m) => !isDoujinshiOrSpinoff(m.title));
     }
 
     // Filter by source if requested
@@ -320,33 +311,33 @@ export async function GET(req: NextRequest) {
     // Precision ranking
     if (cleanQuery) {
       const q = cleanQuery.toLowerCase();
-      const qClean = q.replace(/[^a-z0-9]/g, "");
+      const qClean = cleanKey(q);
 
       combined.sort((a, b) => {
         const aTitle = a.title.toLowerCase();
         const bTitle = b.title.toLowerCase();
-        const aClean = aTitle.replace(/[^a-z0-9]/g, "");
-        const bClean = bTitle.replace(/[^a-z0-9]/g, "");
+        const aClean = cleanKey(aTitle);
+        const bClean = cleanKey(bTitle);
 
-        // 1. Exact title match ALWAYS first (e.g. "One Piece" -> "One Piece")
+        // 1. Exact cleaned title match ALWAYS first (e.g. "One Piece" -> "One Piece")
         const aExact = aClean === qClean;
         const bExact = bClean === qClean;
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
 
-        // 2. Canonical series ALWAYS before doujinshi/fan spin-offs
-        const aDoujin = isDoujinshiOrSpinoff(a.title);
-        const bDoujin = isDoujinshiOrSpinoff(b.title);
-        if (!aDoujin && bDoujin) return -1;
-        if (aDoujin && !bDoujin) return 1;
-
-        // 3. Starts with query
-        const aStarts = aClean.startsWith(qClean);
-        const bStarts = bClean.startsWith(qClean);
+        // 2. Starts with query
+        const aStarts = aClean.startsWith(qClean) || aTitle.startsWith(q);
+        const bStarts = bClean.startsWith(qClean) || bTitle.startsWith(q);
         if (aStarts && !bStarts) return -1;
         if (!aStarts && bStarts) return 1;
 
-        // 4. Higher chapter count first (canon 1100+ chapters beats 1-chapter doujinshi)
+        // 3. Substring match
+        const aSub = aClean.includes(qClean) || aTitle.includes(q);
+        const bSub = bClean.includes(qClean) || bTitle.includes(q);
+        if (aSub && !bSub) return -1;
+        if (!aSub && bSub) return 1;
+
+        // 4. Higher chapter count first (canon 1100+ chapters beats small spinoffs)
         const aCh = a.totalChapters || 0;
         const bCh = b.totalChapters || 0;
         return bCh - aCh;

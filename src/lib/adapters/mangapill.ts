@@ -66,17 +66,23 @@ export async function searchMangaPill(
         const rawId = href ? href.split("/manga/")[1] : "";
         if (!rawId) return null;
 
-        const rawTitle = $(el).find("div > a > div").text().trim() || "Manga Title";
+        const titleEl = $(el).find("a.mb-2 div.font-black, div > a > div.font-black, a.mb-2 div").first();
+        const rawTitle = titleEl.text().trim() || $(el).find("div > a > div").first().text().trim() || "Manga Title";
         const titleLines = rawTitle.split("\n").map((s) => s.trim()).filter(Boolean);
-        const title = titleLines.length > 1 ? titleLines[titleLines.length - 1] : (titleLines[0] || "Manga Title");
+        const title = titleLines.length > 0 ? titleLines[0] : "Manga Title";
         const image = $(el).find("a img").attr("data-src") || getMangaPillCover(rawId);
+        const genres = $(el)
+          .find("div.flex-wrap div.bg-card")
+          .map((_, g) => $(g).text().trim())
+          .get()
+          .filter(Boolean);
 
         return {
           id: `mangapill-${rawId}`,
           rawId,
           title,
           coverUrl: image,
-          genres: [] as string[],
+          genres,
           sourceType: "MANGAPILL" as const,
           source: "MANGAPILL" as const,
         };

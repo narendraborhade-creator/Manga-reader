@@ -14,9 +14,42 @@ export function cleanKey(t: string): string {
   return t
     .toLowerCase()
     .replace(/[’‘`]/g, "'")
-    .replace(/\b(official|webtoon|colored|color|manga|manhwa|manhua|scanlation|scans|raw|comic)\b/gi, "")
+    .replace(/\b(official|webtoon|colored|color|digital colored comics|manga|manhwa|manhua|scanlation|scans|raw|comic|full color|hd)\b/gi, "")
     .replace(/^the\b/gi, "")
     .replace(/[^a-z0-9]/g, "");
+}
+
+const STOP_WORDS = new Set(["the", "a", "an", "of", "in", "to", "and", "is", "for", "with", "no", "na", "ga", "wo", "wa", "ni", "de"]);
+
+export function extractCoreTokens(title: string): string[] {
+  return title
+    .toLowerCase()
+    .replace(/[’‘`]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
+}
+
+const SPINOFF_INDICATORS = new Set([
+  "dj", "doujin", "doujinshi", "omake", "futanari", "hentai", "anthology",
+  "party", "academy", "ragnarok", "gaiden", "prequel", "sequel", "reboot",
+  "spinoff", "side", "story", "stories", "chronicles", "tales", "origins",
+  "shokugeki", "aftermath", "alter", "another", "cross", "crossover",
+]);
+
+export function isDoujinshiOrSpinoff(title: string): boolean {
+  if (!title) return false;
+  const t = title.toLowerCase();
+  return (
+    /\b(dj|doujin|doujinshi|omake|futanari|hentai|fan-comic|fancomic|anthology)\b/i.test(t) ||
+    t.includes(" dj ") ||
+    t.includes(" dj -") ||
+    t.includes("dj -") ||
+    t.includes("(dj)") ||
+    t.includes("fan comic") ||
+    t.includes("doujin anthology")
+  );
 }
 
 export function isNovelTitle(t: string): boolean {
@@ -34,59 +67,111 @@ export function isNovelTitle(t: string): boolean {
   );
 }
 
+/**
+ * Strict cross-source title matcher: returns true only if the candidate is the exact same series
+ * (not a spinoff, sequel, prequel, anthology, or completely different title sharing a few keywords).
+ */
 export function isStrictTitleMatch(candidate: string, targets: string[]): boolean {
-  // If target series is a comic but candidate is a novel, reject immediately
   const candidateIsNovel = isNovelTitle(candidate);
   const targetIsNovel = targets.some((t) => isNovelTitle(t));
-  if (candidateIsNovel && !targetIsNovel) {
-    return false;
-  }
-  if (!candidateIsNovel && targetIsNovel) {
-    return false;
-  }
+  if (candidateIsNovel !== targetIsNovel) return false;
 
-  const c = cleanKey(candidate);
-  if (!c || c.length < 2) return false;
+  const candidateIsDoujin = isDoujinshiOrSpinoff(candidate);
+  const targetIsDoujin = targets.some((t) => isDoujinshiOrSpinoff(t));
+  if (candidateIsDoujin && !targetIsDoujin) return false;
 
-  const candidateWords = new Set(
-    candidate
-      .toLowerCase()
-      .replace(/[’‘`]/g, "'")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 2 && !["the", "and", "of", "in", "to", "for", "with"].includes(w))
-  );
+  const cKey = cleanKey(candidate);
+  if (!cKey || cKey.length < 2) return false;
+
+  const candTokens = extractCoreTokens(candidate);
+  const candTokenSet = new Set(candTokens);
 
   for (const t of targets) {
-    const target = cleanKey(t);
-    if (!target || target.length < 2) continue;
+    const tKey = cleanKey(t);
+    if (!tKey || tKey.length < 2) continue;
 
-    // Exact cleaned match
-    if (c === target) return true;
+    // 1. Exact cleaned key match (handles casing, punctuation, coloring/official tags)
+    if (cKey === tKey) return true;
 
-    // Very close match
-    if (c.startsWith(target) || target.startsWith(c)) {
-      if (Math.abs(c.length - target.length) <= 5) return true;
-    }
+    // 2. Token evaluation
+    const targTokens = extractCoreTokens(t);
+    if (targTokens.length === 0) continue;
 
-    // Substring containment for long titles
-    if (c.length >= 8 && target.length >= 8) {
-      if (c.includes(target) || target.includes(c)) return true;
-    }
+    // If candidate has spinoff/doujin indicators that target doesn't have, REJECT!
+    const targetTokenSet = new Set(targTokens);
+    const hasSpinoffToken = candTokens.some((tok) => SPINOFF_INDICATORS.has(tok) && !targetTokenSet.has(tok));
+    if (hasSpinoffToken) continue;
 
-    // Token overlap
-    const targetWords = t
-      .toLowerCase()
-      .replace(/[’‘`]/g, "'")
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length > 2 && !["the", "and", "of", "in", "to", "for", "with"].includes(w));
-
-    if (candidateWords.size > 0 && targetWords.length > 0) {
-      const common = targetWords.filter((w) => candidateWords.has(w));
-      if (common.length >= 2 && common.length >= Math.min(candidateWords.size, targetWords.length) * 0.6) {
+    // Check if target is a clean subset without stray words
+    const allTargTokensPresent = targTokens.every((tok) => candTokenSet.has(tok));
+    if (allTargTokensPresent) {
+      const extraTokens = candTokens.filter((tok) => !targetTokenSet.has(tok));
+      // Only allow extra tokens if they are version/format numbers or harmless descriptors
+      const allowedExtras = new Set(["season", "s1", "s2", "s3", "vol", "volume", "ch", "chapter", "edition", "deluxe"]);
+      const invalidExtras = extraTokens.filter((tok) => !allowedExtras.has(tok) && !/^\d+$/.test(tok));
+      if (invalidExtras.length === 0) {
         return true;
       }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Validates search query relevance to prevent false positives and random keyword matches
+ */
+export function isRelevantToSearch(
+  title: string,
+  altTitles: string[] = [],
+  query: string
+): boolean {
+  if (!title || !query) return false;
+
+  const q = query.trim().toLowerCase();
+  const qClean = cleanKey(q);
+  if (!qClean) return false;
+
+  const queryAllowsDoujin = /\b(dj|doujin|doujinshi|hentai|omake|fancomic)\b/i.test(q);
+  const queryAllowsNovel = /\b(novel|ln|wn)\b/i.test(q);
+
+  // If query does not ask for novels, reject novels
+  if (!queryAllowsNovel && isNovelTitle(title)) return false;
+
+  // If query does not ask for doujinshis/hentai, reject doujinshis/hentai/fancomics
+  if (!queryAllowsDoujin && isDoujinshiOrSpinoff(title)) return false;
+
+  const candidatePool = [title, ...altTitles];
+
+  // 1. Direct match check
+  for (const cand of candidatePool) {
+    if (!cand) continue;
+    const cClean = cleanKey(cand);
+    if (!cClean || cClean.length < 2) continue;
+    if (cClean === qClean) return true;
+    if (cClean.startsWith(qClean)) return true;
+    if (cand.toLowerCase().includes(q)) return true;
+  }
+
+  // 2. Token-level check
+  const qTokens = extractCoreTokens(q);
+  if (qTokens.length === 0) return false;
+
+  for (const cand of candidatePool) {
+    if (!cand) continue;
+    const candTokens = extractCoreTokens(cand);
+    if (candTokens.length === 0) continue;
+    const candTokenSet = new Set(candTokens);
+
+    // If query has <= 4 tokens, EVERY token in the query MUST exist in the candidate!
+    // (e.g. "World's Strongest Troll" requires "world", "strongest", AND "troll")
+    if (qTokens.length <= 4) {
+      const allPresent = qTokens.every((tok) => candTokenSet.has(tok));
+      if (allPresent) return true;
+    } else {
+      // For longer queries, at least 80% of query tokens must exist
+      const matchCount = qTokens.filter((tok) => candTokenSet.has(tok)).length;
+      if (matchCount / qTokens.length >= 0.8) return true;
     }
   }
 
@@ -107,7 +192,7 @@ export function unifyAndSortChapters(
 
   const groups: ChapterGroup[] = [];
   for (const [chapterNumber, list] of byNumber.entries()) {
-    // Prioritize high-reliability direct streaming CDNs (Asura, MangaPill, WeebCentral), then hosted MangaDex
+    // Prioritize high-reliability direct streaming CDNs (MangaKatana, Asura, MangaPill, WeebCentral), then hosted MangaDex
     list.sort((a, b) => {
       const getPriority = (c: NormalizedChapter) => {
         if (c.externalUrl) return -1;
